@@ -38,7 +38,7 @@ confluent-this-command exists, the CLI runs this plugin and passes all arguments
  
 There's a search and install command in the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/install.html)  that you can use for listing and installing the plugins available in this repo.
 
-Here's a list of the current plugins you can install for the confluent CLI
+Here's a list of the current plugins you can install for the confluent CLI:
 
 ### [confluent cloud-kickstart](cloud-kickstart/confluent-cloud_kickstart.py)
   - Creates a cluster with the preferred cloud provider and region

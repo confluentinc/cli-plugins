@@ -11,7 +11,7 @@ Supported providers:
 Once the command starts running, no interaction is necessary.
 
 ```
-$ go install github.com/confluentinc/cli-plugins/confluent-login-headless_sso
+$ go install github.com/confluentinc/cli-plugins/confluent-login-headless_sso@latest
 
 $ confluent plugin list
           Plugin Name          |               File Path                

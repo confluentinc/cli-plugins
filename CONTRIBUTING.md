@@ -1,6 +1,4 @@
 ## Contribute a plugin
-
-
 1. Clone this repository and create a branch. 
 2. [Write a plugin](#write-a-plugin)!
 3. Your PR for adding a plugin should follow these guidelines.

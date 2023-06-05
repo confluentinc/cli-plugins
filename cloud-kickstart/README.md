@@ -27,6 +27,6 @@ options:
   --geo {apac,eu,us}    Cloud geographical region Defaults to us
   --client {clojure,cpp,csharp,go,groovy,java,kotlin,ktor,nodejs,python,restapi,ruby,rust,scala,springboot}
                         Properties file used by client (default java)
-  --debug {y,n}         Prints the results of every command, defaults to n
+  --debug               Prints the results of every command, defaults to n
   --dir DIR             Directory to save credentials and client configs, defaults to download directory
 ```

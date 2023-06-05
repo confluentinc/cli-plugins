@@ -28,6 +28,6 @@ Here's a list of the current plugins you can install for the confluent CLI:
      - Useage 
 4. A yml file name `manifest.yml` that has the following entries. See [cloud-kickstart/manifest.yml](cloud-kickstart/manifest.yml).  The CLI parses the manifest files to generate a list of plugins to install.
     -  `name` - The name of the plugin
-    - `description` - A one sentence description of the plugin functionality
-    - `requirements` - The requirments users must have installed to run it.
+    - `description` - A one sentence description of the functionality
+    - `requirements` - What users must have installed to run it.
 5. Add the plugin to the list in the [Available Plugins](#avaiable-plugins) section above with a link to its README file.

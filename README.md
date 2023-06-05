@@ -18,4 +18,4 @@ Here's a list of the current plugins you can install for the confluent CLI:
 
 ## Contributing a plugin
 
-To learn how to this repository read the [CONTRIBUTING](CONTRIBUTING.md) file.
+To learn how to add a plugin to this repository read the [CONTRIBUTING](CONTRIBUTING.md) file.

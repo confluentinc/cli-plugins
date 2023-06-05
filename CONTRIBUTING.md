@@ -35,7 +35,7 @@ rules apply:
     `confluent-that_command` by running either of the following
     commmands:
 
-    ```bash
+    ```
     confluent that-command
     ```
     

@@ -30,4 +30,4 @@ Here's a list of the current plugins you can install for the confluent CLI:
     - `description` - A one sentence description of the plugin functionality
     - `requirements` - The requirments users must have installed to run it.
 
-4. Add the plugin to the list in the (#avaiable plugins) section with a link to its README file.
+4. Add the plugin to the list in the [Available Plugins](#avaiable-plugins) section above with a link to its README file.

@@ -4,7 +4,7 @@ This repo contains plugins for use with
 the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/overview.html). For more information on plugins, consult the [CLI Plugin documentation](https://docs.confluent.io/confluent-cli/current/plugins.html)
 
 
-## Plugins
+## Available Plugins
 
 
 Here's a list of the current plugins you can install for the confluent CLI:
@@ -16,9 +16,7 @@ Here's a list of the current plugins you can install for the confluent CLI:
 2. [confluent purge-keys](purge-keys/README.md)
 
 
-
-
-## Instructions for adding a plugin to this repo
+## Contributing a plugin
 
 1. Clone this repo and create a branch. Write a plugin!
 2. Your PR for adding a plugin should follow these guidelines.  Take a look at [cloud-kickstart](cloud-kickstart/README.md) for an example.
@@ -32,4 +30,4 @@ Here's a list of the current plugins you can install for the confluent CLI:
     - `description` - A one sentence description of the plugin functionality
     - `requirements` - The requirments users must have installed to run it.
 
-4. Add the plugin to the list in the (#Plugins) section with a link to its README file.
+4. Add the plugin to the list in the (#avaiable plugins) section with a link to its README file.

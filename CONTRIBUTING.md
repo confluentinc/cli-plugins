@@ -38,21 +38,13 @@ rules apply:
     `confluent-that_command` by running either of the following
     commmands:
 
-    <div class="codewithvars">
-
-    bash
-
+    ```bash
     confluent that-command
-
-    </div>
-
-    <div class="codewithvars">
-
-    bash
-
+    ```
+    
+    ```bash
     confluent that_command
-
-    </div>
+    ```
 
 -   On Windows, all file extensions defined in `$PATHTEXT` are
     supported.

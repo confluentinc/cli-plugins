@@ -13,9 +13,6 @@
     - `description` - A one sentence description of the functionality
     - `dependencies` - What users must have installed to run it.
 5. Add the plugin to the list in the [Available Plugins](README.md#avaiable-plugins) section in the repository README file with a link to its README file.
-
-
-
 ## Write a Plugin
 
 You can write a plugin in any programming or scripting language that

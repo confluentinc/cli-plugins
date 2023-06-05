@@ -1,5 +1,3 @@
-## Confluent cloud-kickstart
-
 ### [confluent cloud-kickstart](confluent-cloud_kickstart.py)
   - Creates a cluster with the preferred cloud provider and region
   - Generates API key and secret for cluster access 

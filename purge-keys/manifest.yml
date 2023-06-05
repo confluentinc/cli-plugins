@@ -1,0 +1,3 @@
+name: purge-keys
+description: Deletes API keys for the current user, specified environment, or service account
+requirements: Python 3

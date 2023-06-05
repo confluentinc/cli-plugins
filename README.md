@@ -1,66 +1,34 @@
 ## Plugins for Confluent CLI
 
 This repo contains plugins for use with
-the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/overview.html). For more information on what a plugin is you can consult the [CLI Plugin documentation](https://docs.confluent.io/confluent-cli/current/plugins.html)
+the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/overview.html). For more information on plugins, consult the [CLI Plugin documentation](https://docs.confluent.io/confluent-cli/current/plugins.html)
 
 
 ## Plugins
 
-### Using the installation command
- 
-There's a search and install command in the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/install.html)  that you can use for listing and installing the plugins available in this repo.
 
 Here's a list of the current plugins you can install for the confluent CLI:
 
-### [confluent cloud-kickstart](cloud-kickstart/confluent-cloud_kickstart.py)
-  - Creates a cluster with the preferred cloud provider and region
-  - Generates API key and secret for cluster access 
-  - Enables Schema Registry
-  - Sets the new API key as the active one for the cluster
-  - Generates API key and secret for Schema Registry access
-  - Writes API key and secret for cluster and SR to files, writes client config to file
-  - TODO
-    - Support creating environment and service account
-#### Requirements
-  - Python 3 (3.10.9 used for this plugin)  `brew install python3`
-  - [Confluent CLI v3.0.0](https://docs.confluent.io/confluent-cli/current/install.html)
-#### Usage
-```text
-usage: confluent cloud-kickstart [-h] --name NAME [--env ENV] [--cloud {aws,azure,gcp}] [--region REGION] [--geo {apac,eu,us}]
-[--client {clojure,cpp,csharp,go,groovy,java,kotlin,ktor,nodejs,python,restapi,ruby,rust,scala,springboot}] [--debug {y,n}] [--dir DIR]
+1. [confluent cloud-kickstart](cloud-kickstart/README.md)
 
-Creates a Kafka cluster with API keys, Schema Registry with API keys and a client config properties file. This plugin assumes confluent CLI v3.0.0 or greater
+2. [confluent-login-headless_sso](confluent-login-headless_sso/README.md)
 
-options:
-  -h, --help            show this help message and exit
-  --name NAME           The name for your Confluent Kafka Cluster
-  --env ENV             The environment name
-  --cloud {aws,azure,gcp}
-                        Cloud Provider, Defaults to aws
-  --region REGION       Cloud region e.g us-west-2 (aws), westus (azure), us-west1 (gcp) Defaults to us-west-2
-  --geo {apac,eu,us}    Cloud geographical region Defaults to us
-  --client {clojure,cpp,csharp,go,groovy,java,kotlin,ktor,nodejs,python,restapi,ruby,rust,scala,springboot}
-                        Properties file used by client (default java)
-  --debug {y,n}         Prints the results of every command, defaults to n
-  --dir DIR             Directory to save credentials and client configs, defaults to download directory
-```
+2. [confluent purge-keys](purge-keys/README.md)
 
-### [confluent keys-purge](purge-keys/confluent-keys_purge.py)
- - Purges all API keys 
-   - User prompted to confirm
-#### Requirements
-  - Python 3 (3.10.9 used for this plugin)  `brew install python3`
-  - [Confluent CLI v3.0.0](https://docs.confluent.io/confluent-cli/current/install.html)
-#### Usage
-```text
-usage: confluent keys-purge [-h] [--resource RESOURCE] [--env ENV] [--sa SA]
 
-Deletes API keys for the current user, specified environment, or service account This plugin assumes confluent CLI v3.0.0 or greater
 
-options:
-  -h, --help           show this help message and exit
-  --resource RESOURCE  The resource id to filter results by
-  --env ENV            The environment id to purge keys from
-  --sa SA              The service account id to purge keys from
-```
 
+## Instructions for adding a plugin to this repo
+
+. Clone this repo and create a branch
+. Write a plugin!
+. Your PR for adding a plugin should follow these guidelines.  Take a look at [cloud-kickstart](cloud-kickstart/README.md) for an example.
+  . Create a directory with name of the plugin command
+  . Include in the directory a README file containing
+    . An outline of the plugin functionality
+    . Requirements
+    . Useage 
+  . A yml file name `manifest.yml` that has the following entries. See [cloud-kickstart/manifest.yml](cloud-kickstart/manifest.yml).  The CLI parses the manifest files to generate a list of plugins to install.
+    . `name` - The name of the plugin
+    . `description` - A one sentence description of the plugin functionality
+    . `requirements` - The requirments users must have installed to run it.

@@ -13,7 +13,10 @@ Here's a list of the current plugins you can install for the confluent CLI:
 
 2. [confluent login headless-sso](confluent-login-headless_sso/README.md)
 
-2. [confluent keys-purge](confluent-keys_purge/README.md)
+3. [confluent keys-purge](confluent-keys_purge/README.md)
+
+4. [confluent schema-purge](schema-purge/README.md)
+
 
 
 ## Contributing a plugin

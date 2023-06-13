@@ -1,0 +1,3 @@
+name: schema-purge
+description: Performs a hard delete on all schemas
+requirements: Python 3

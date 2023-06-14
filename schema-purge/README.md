@@ -3,7 +3,7 @@
    - User prompted to confirm
 #### Requirements
   - Python 3 (3.10.9 used for this plugin)  `brew install python3`
-  - [Confluent CLI v3.0.0](https://docs.confluent.io/confluent-cli/current/install.html)
+  - [Confluent CLI v3](https://docs.confluent.io/confluent-cli/current/install.html)
 #### Usage
 ```text
 usage: confluent schema-purge [-h] [--subject-prefix SUBJECT_PREFIX] [--api-key API_KEY] [--api-secret API_SECRET] [--context CONTEXT] [--env ENV] [--secrets-file SECRETS_FILE]

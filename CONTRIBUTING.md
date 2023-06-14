@@ -23,6 +23,7 @@
       version: "2.7"
     ```
 5. Add the plugin to the list in the [Available Plugins](README.md#available-plugins) section in the repository README file with a link to its README file.
+
 ## Write a Plugin
 
 You can write a plugin in any programming or scripting language that

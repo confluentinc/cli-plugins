@@ -33,10 +33,10 @@ def cli(cmd_args, print_output=False, fmt_json=True):
     return final_result
 
 
-usage_message = 'confluent schema-purge [-h] [--subject-prefix SUBJECT_PREFIX] [--api-key API_KEY] [--api-secret API_SECRET] [--context CONTEXT] [--env ENV] [--secrets-file SECRETS_FILE]'
+usage_message = 'confluent schema-registry schema purge [-h] [--subject-prefix SUBJECT_PREFIX] [--api-key API_KEY] [--api-secret API_SECRET] [--context CONTEXT] [--env ENV] [--secrets-file SECRETS_FILE]'
 
 parser = argparse.ArgumentParser(description='Deletes all schemas permanently'
-                                             'This plugin assumes confluent CLI v3.0.0 or greater',
+                                             ' This plugin assumes confluent CLI v3.0.0 or greater',
                                  usage=usage_message)
 
 parser.add_argument('--subject-prefix', help='List schemas for subjects matching the prefix')

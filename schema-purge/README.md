@@ -6,7 +6,7 @@
   - [Confluent CLI v3](https://docs.confluent.io/confluent-cli/current/install.html)
 #### Usage
 ```text
-usage: confluent schema-purge [-h] [--subject-prefix SUBJECT_PREFIX] [--api-key API_KEY] [--api-secret API_SECRET] [--context CONTEXT] [--env ENV] [--secrets-file SECRETS_FILE]
+usage: confluent schema-registry schema purge [-h] [--subject-prefix SUBJECT_PREFIX] [--api-key API_KEY] [--api-secret API_SECRET] [--context CONTEXT] [--env ENV] [--secrets-file SECRETS_FILE]
 
 Deletes schemas This plugin assumes confluent CLI v3.0.0 or greater
 

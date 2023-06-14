@@ -33,7 +33,7 @@ def cli(cmd_args, print_output, fmt_json=True):
     return final_result
 
 
-usage_message = "confluent keys-purge [-h] [--resource RESOURCE] [--env ENV] [--sa SA]"
+usage_message = "confluent api-key purge [-h] [--resource RESOURCE] [--env ENV] [--sa SA]"
 
 parser = argparse.ArgumentParser(description='Deletes API keys for the current user, '
                                              'specified environment, or service account '

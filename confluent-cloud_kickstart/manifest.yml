@@ -1,3 +1,2 @@
-name: cloud-kickstart
 description: Creates a cluster, enables schema-registry, generates API keys, and outputs a client config file
-requirements: Python 3
+dependencies: Python 3

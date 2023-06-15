@@ -10,7 +10,7 @@
 4. A YAML file named `manifest.yml` that has the following entries. See [cloud-kickstart/manifest.yml](cloud-kickstart/manifest.yml).  The CLI parses the manifest files to generate a list of plugins to install.
     - `description` - A one sentence description of the functionality
     - `dependencies` - What users must have installed to run it.
-5. Add the plugin to the list in the [Available Plugins](README.md#avaiable-plugins) section in the repository README file with a link to its README file.
+5. Add the plugin to the list in the [Available Plugins](README.md#available-plugins) section in the repository README file with a link to its README file.
 ## Write a Plugin
 
 You can write a plugin in any programming or scripting language that

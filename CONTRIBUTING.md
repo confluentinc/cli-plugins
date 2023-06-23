@@ -2,7 +2,7 @@
 1. Clone this repository and create a branch. 
 2. [Write a plugin](#write-a-plugin)!
 3. Your PR for adding a plugin should follow these guidelines.
-   - Create a directory with name of the plugin command.  The CLI will infer the name of the plugin from this directory name when listing potential plugins to install.
+   - Create a directory with name of the plugin command.  The CLI will infer the name of the plugin from this directory name when listing potential plugins to install. This name should follow the conventions specified in the [Plugin file name](#plugin-file-name) section.
    - Include in the directory a README with the following content. Take a look at [cloud-kickstart](cloud-kickstart/README.md) for an example. 
      - An outline of the plugin functionality
      - Requirements

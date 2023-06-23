@@ -12,6 +12,7 @@
     - `dependencies` - A list of what users must have installed to run it. Each entry must have the following fields:
       - `dependency` - The name of the dependency.
       - `version` - A minimum required version to use the plugin.
+
     Example:
     ```
     description: Use the CLI to print Hello World.

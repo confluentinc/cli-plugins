@@ -8,8 +8,19 @@
      - Requirements
      - Usage 
 4. A YAML file named `manifest.yml` that has the following entries. See [cloud-kickstart/manifest.yml](cloud-kickstart/manifest.yml).  The CLI parses the manifest files to generate a list of plugins to install.
-    - `description` - A one sentence description of the functionality
-    - `dependencies` - What users must have installed to run it.
+    - `description` - A one sentence description of the functionality.
+    - `dependencies` - A list of what users must have installed to run it. Each entry must have the following fields:
+      - `dependency` - The name of the dependency.
+      - `version` - A minimum required version to use the plugin.
+    Example:
+    ```
+    description: Use the CLI to print Hello World.
+    dependencies:
+    - dependency: Go
+      version: "1.19.6"
+    - dependency: Python
+      version: "2.7"
+    ```
 5. Add the plugin to the list in the [Available Plugins](README.md#available-plugins) section in the repository README file with a link to its README file.
 ## Write a Plugin
 

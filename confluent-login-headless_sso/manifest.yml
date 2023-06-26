@@ -1,2 +1,4 @@
 description: Use a headless browser to automatically authenticate to Confluent Cloud with SSO.
-dependencies: Go 1.20
+dependencies:
+- dependency: Go
+  version: "1.20"

@@ -1,2 +1,4 @@
 description: Deletes API keys for the current user, specified environment, or service account
-dependencies: Python 3
+dependencies:
+- dependency: Python
+  version: "3"

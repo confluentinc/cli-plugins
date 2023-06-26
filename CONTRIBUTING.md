@@ -2,14 +2,26 @@
 1. Clone this repository and create a branch. 
 2. [Write a plugin](#write-a-plugin)!
 3. Your PR for adding a plugin should follow these guidelines.
-   - Create a directory with name of the plugin command.  The CLI will infer the name of the plugin from this directory name when listing potential plugins to install.
+   - Create a directory with name of the plugin command.  The CLI will infer the name of the plugin from this directory name when listing potential plugins to install. This name should follow the conventions specified in the [Plugin file name](#plugin-file-name) section.
    - Include in the directory a README with the following content. Take a look at [cloud-kickstart](cloud-kickstart/README.md) for an example. 
      - An outline of the plugin functionality
      - Requirements
      - Usage 
 4. A YAML file named `manifest.yml` that has the following entries. See [cloud-kickstart/manifest.yml](cloud-kickstart/manifest.yml).  The CLI parses the manifest files to generate a list of plugins to install.
-    - `description` - A one sentence description of the functionality
-    - `dependencies` - What users must have installed to run it.
+    - `description` - A one sentence description of the functionality.
+    - `dependencies` - A list of what users must have installed to run it. Each entry must have the following fields:
+      - `dependency` - The name of the dependency.
+      - `version` - A minimum required version to use the plugin.
+
+    Example:
+    ```
+    description: Use the CLI to print Hello World.
+    dependencies:
+    - dependency: Go
+      version: "1.19.6"
+    - dependency: Python
+      version: "2.7"
+    ```
 5. Add the plugin to the list in the [Available Plugins](README.md#available-plugins) section in the repository README file with a link to its README file.
 ## Write a Plugin
 

@@ -1,0 +1,4 @@
+description: Performs a hard delete on all schemas
+dependencies:
+  - dependency: Python
+    version: "3"

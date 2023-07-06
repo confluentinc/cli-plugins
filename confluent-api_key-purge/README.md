@@ -6,7 +6,7 @@
   - [Confluent CLI v3.0.0](https://docs.confluent.io/confluent-cli/current/install.html)
 #### Usage
 ```text
-usage: confluent keys-purge [-h] [--resource RESOURCE] [--env ENV] [--sa SA]
+usage: confluent api-key purge [-h] [--resource RESOURCE] [--env ENV] [--sa SA]
 
 Deletes API keys for the current user, specified environment, or service account This plugin assumes confluent CLI v3.0.0 or greater
 

@@ -8,13 +8,10 @@ the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/overview.htm
 
 
 Here's a list of the current plugins you can install for the confluent CLI:
-
-1. [confluent cloud-kickstart](confluent-cloud_kickstart/README.md)
-
-2. [confluent login headless-sso](confluent-login-headless_sso/README.md)
-
-3. [confluent api-key purge](confluent-api_key-purge/README.md)
-
+  
+1. [confluent api-key purge](confluent-api_key-purge/README.md)
+2. [confluent cloud-kickstart](confluent-cloud_kickstart/README.md)
+3. [confluent login headless-sso](confluent-login-headless_sso/README.md)
 4. [confluent schema-registry schema purge](confluent-schema_registry-schema-purge/README.md)
 
 

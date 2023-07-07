@@ -19,9 +19,10 @@
     dependencies:
     - dependency: Go
       version: "1.19.6"
-    - dependency: Python
-      version: "2.7"
+    - dependency: jq
+      version: "1.6"
     ```
+    The first dependency must be the language in which the plugin is written. Currently, we support Go, Python, and Shell scripts. Subsequent dependencies may be other programs required by your plugin, such as the jq command line tool.
 5. Add the plugin to the list in the [Available Plugins](README.md#available-plugins) section in the repository README file with a link to its README file.
 
 ## Write a Plugin

@@ -10,16 +10,16 @@
 4. A YAML file named `manifest.yml` that has the following entries. See [cloud-kickstart/manifest.yml](cloud-kickstart/manifest.yml).  The CLI parses the manifest files to generate a list of plugins to install.
     - `description` - A one sentence description of the functionality.
     - `dependencies` - A list of what users must have installed to run it. Each entry must have the following fields:
-      - `dependency` - The name of the dependency.
+      - `name` - The name of the dependency.
       - `version` - A minimum required version to use the plugin.
 
     Example:
     ```
     description: Use the CLI to print Hello World.
     dependencies:
-    - dependency: Go
+    - name: Go
       version: "1.19.6"
-    - dependency: jq
+    - name: jq
       version: "1.6"
     ```
     The first dependency must be the language in which the plugin is written. Currently, we support Go, Python, and Shell scripts. Subsequent dependencies may be other programs required by your plugin, such as the [jq command line tool](https://jqlang.github.io/jq/).

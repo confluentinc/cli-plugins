@@ -22,7 +22,9 @@
     - name: jq
       version: "1.6"
     ```
-    The first dependency must be the language in which the plugin is written. Currently, we support Go, Python, and Bash scripts. Subsequent dependencies may be other programs required by your plugin, such as the [jq command line tool](https://jqlang.github.io/jq/).
+    The first dependency must be the language in which the plugin is written. Currently, we support Go, Python, and Bash scripts. The first dependency's `name` field should be one of `Go`, `Python`, or `Bash`. For example, `Go` is allowed but `Golang` is not.
+
+    Subsequent dependencies may be other programs required by your plugin, such as the [jq command line tool](https://jqlang.github.io/jq/).
 5. Add the plugin to the list in the [Available Plugins](README.md#available-plugins) section in the repository README file with a link to its README file.
 
 ## Write a Plugin

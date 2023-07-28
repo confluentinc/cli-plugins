@@ -82,7 +82,7 @@ print("Creating the Kafka cluster")
 cluster_json = cli(["confluent", "kafka", "cluster", "create", args.name,
                     "-o", "json", "--cloud", args.cloud, "--region", args.region], debug)
 
-print("Generating api keys for the cluster")
+print("Generating API keys for the Kafka cluster")
 creds_json = cli(["confluent", "api-key", "create", "--resource", cluster_json['id'], "-o", "json"], debug)
 
 print("Enabling Schema Registry")
@@ -92,10 +92,10 @@ sr_json = cli(["confluent", "schema-registry", "cluster", "enable", "--cloud",
 print("Generating API keys for Schema Registry")
 sr_creds_json = cli(["confluent", "api-key", "create", "--resource", sr_json['id'], "-o", "json"], debug)
 
-print("Enabling the API key for Cluster")
+print("Enabling the API key for the Kafka cluster")
 cli(["confluent", "api-key", "use", creds_json['api_key'], "--resource", cluster_json['id']], debug, fmt_json=False)
 
-print("Generating client config")
+print("Generating client configuration")
 client_config = cli(["confluent", "kafka", "client-config", "create", args.client,
                      "--cluster", cluster_json['id'],
                      "--api-key", creds_json['api_key'],

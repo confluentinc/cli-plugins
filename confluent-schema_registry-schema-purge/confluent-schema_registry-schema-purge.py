@@ -67,7 +67,7 @@ if args.env is not None:
     delete_schema_cmd.append(args.env)
 if args.subject_prefix is not None:
     list_schema_cmd.append('--subject-prefix')
-    list_schema_cmd.append(args.sa)
+    list_schema_cmd.append(args.subject_prefix)
 if args.api_key is None and args.api_secret is None:
     with open(args.secrets_file) as json_file:
         creds_json = json.load(json_file)

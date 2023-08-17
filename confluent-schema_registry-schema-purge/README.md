@@ -6,19 +6,13 @@
   - [Confluent CLI v3](https://docs.confluent.io/confluent-cli/current/install.html)
 #### Usage
 ```text
-usage: confluent schema-registry schema purge [-h] [--subject-prefix SUBJECT_PREFIX] [--api-key API_KEY] [--api-secret API_SECRET] [--context CONTEXT] [--env ENV] [--secrets-file SECRETS_FILE]
+usage: confluent schema-registry schema purge [-h] [--subject-prefix SUBJECT_PREFIX] [--context CONTEXT] [--env ENV]
 
-Deletes schemas This plugin assumes confluent CLI v3.0.0 or greater
+Deletes schemas This plugin assumes confluent CLI v3.25.0 or greater
 
 options:
-  -h, --help            show this help message and exit
-  --subject-prefix SUBJECT_PREFIX
-                        List schemas for subjects matching the prefix
-  --api-key API_KEY     The API key
-  --api-secret API_SECRET
-                        The API secret
-  --context CONTEXT     The CLI context name
-  --env ENV             The environment id
-  --secrets-file SECRETS_FILE
-                        Path to a JSON file with the API key and secret, the --api-key and --api-secret flags take priority
+  -h, --help                      Show this help message and exit
+  --subject-prefix SUBJECT_PREFIX List schemas for subjects matching the prefix
+  --context CONTEXT               The CLI context name
+  --env ENV                       The environment ID
 ```

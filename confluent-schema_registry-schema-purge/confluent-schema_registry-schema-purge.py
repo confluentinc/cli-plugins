@@ -33,27 +33,20 @@ def cli(cmd_args, print_output=False, fmt_json=True):
     return final_result
 
 
-usage_message = 'confluent schema-registry schema purge [-h] [--subject-prefix SUBJECT_PREFIX] [--api-key API_KEY] [--api-secret API_SECRET] [--context CONTEXT] [--env ENV] [--secrets-file SECRETS_FILE]'
+usage_message = 'confluent schema-registry schema purge [-h] [--subject-prefix SUBJECT_PREFIX] [--context CONTEXT] [--env ENV]'
 
-parser = argparse.ArgumentParser(description='Deletes all schemas permanently.  This plugin assumes confluent CLI v3.0.0 or greater',
+parser = argparse.ArgumentParser(description='Deletes all schemas permanently.  This plugin assumes confluent CLI v3.25.0 or greater',
                                  usage=usage_message)
 
 parser.add_argument('--subject-prefix', help='List schemas for subjects matching the prefix')
-parser.add_argument('--api-key', help='The API key')
-parser.add_argument('--api-secret', help='The API secret')
 parser.add_argument('--context', help='The CLI context name')
-parser.add_argument('--env', help='The environment id')
-parser.add_argument('--secrets-file', help='Path to a JSON file with the API key and secret, '
-                                           'the --api-key and --api-secret flags take priority')
+parser.add_argument('--env', help='The environment ID')
 
 args = parser.parse_args()
 
 list_schema_cmd = ['confluent', 'schema-registry', 'schema', 'list', '--output', 'json']
 delete_schema_cmd = ['confluent', 'schema-registry', 'schema', 'delete', '--force', '--version', 'all']
 describe_with_refs_cmd = ['confluent', 'schema-registry', 'schema', 'describe', '--show-references']
-if args.api_key is None and args.api_secret is None and args.secrets_file is None:
-    print("You must specify --api-key and --api-secret or --secrets-file")
-    exit(1)
 
 if args.context is not None:
     list_schema_cmd.append('--context')
@@ -68,24 +61,7 @@ if args.env is not None:
 if args.subject_prefix is not None:
     list_schema_cmd.append('--subject-prefix')
     list_schema_cmd.append(args.subject_prefix)
-if args.api_key is None and args.api_secret is None:
-    with open(args.secrets_file) as json_file:
-        creds_json = json.load(json_file)
-        api_key = creds_json['api_key']
-        api_secret = creds_json['api_secret']
-else:
-    api_key = args.api_key
-    api_secret = args.api_secret
 
-list_schema_cmd.append('--api-key')
-list_schema_cmd.append(api_key)
-list_schema_cmd.append('--api-secret')
-list_schema_cmd.append(api_secret)
-
-delete_schema_cmd.append('--api-key')
-delete_schema_cmd.append(api_key)
-delete_schema_cmd.append('--api-secret')
-delete_schema_cmd.append(api_secret)
 delete_schema_cmd.append('--subject')
 
 schema_list_json = cli(list_schema_cmd)

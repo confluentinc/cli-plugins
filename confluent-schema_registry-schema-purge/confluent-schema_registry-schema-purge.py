@@ -40,7 +40,7 @@ parser = argparse.ArgumentParser(description='Deletes all schemas permanently.  
 
 parser.add_argument('--subject-prefix', help='List schemas for subjects matching the prefix')
 parser.add_argument('--context', help='The CLI context name')
-parser.add_argument('--env', help='The environment id')
+parser.add_argument('--env', help='The environment ID')
 
 args = parser.parse_args()
 

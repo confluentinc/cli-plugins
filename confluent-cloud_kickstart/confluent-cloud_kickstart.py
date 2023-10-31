@@ -95,6 +95,9 @@ sr_creds_json = cli(["confluent", "api-key", "create", "--resource", sr_json['id
 print("Enabling the API key for the Kafka cluster")
 cli(["confluent", "api-key", "use", creds_json['api_key'], "--resource", cluster_json['id']], debug, fmt_json=False)
 
+print("Setting created cluster for use in subsequent commands")
+cli(["confluent", "kafka", "cluster", "use", cluster_json['id']], debug, fmt_json=False)
+
 print("Generating client configuration")
 client_config = cli(["confluent", "kafka", "client-config", "create", args.client,
                      "--cluster", cluster_json['id'],

@@ -100,7 +100,6 @@ cli(["confluent", "kafka", "cluster", "use", cluster_json['id']], debug, fmt_jso
 
 print("Generating client configuration")
 client_config = cli(["confluent", "kafka", "client-config", "create", args.client,
-                     "--cluster", cluster_json['id'],
                      "--api-key", creds_json['api_key'],
                      "--api-secret", creds_json['api_secret'],
                      "--schema-registry-api-key", sr_creds_json['api_key'],

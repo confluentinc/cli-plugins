@@ -15,98 +15,113 @@
 import argparse
 import subprocess
 import json
-from pathlib import Path
-from datetime import datetime
-import os
+import time
 
 
-def cli(cmd_args, print_output, fmt_json=True):
-    results = subprocess.run(cmd_args, capture_output=True)
+def cli(cmd_args, capture_output=True, fmt_json=True):
+    if debug:
+        print(f"CMD args {cmd_args}")
+    results = subprocess.run(cmd_args, capture_output=capture_output)
     if results.returncode != 0:
         print(str(results.stderr, 'UTF-8'))
         exit(results.returncode)
-    if fmt_json:
-        final_result = json.loads(results.stdout)
-    else:
-        final_result = str(results.stdout, 'UTF-8')
-
-    if print_output:
-        print("Debug: %s" % final_result)
-
-    return final_result
-
-
-def write_to_file(file_name, text, json_fmt=True):
-    print("Writing %s to %s" % (file_name, save_dir))
-    with open(file_name, 'w', encoding='utf-8') as out_file:
-        if json_fmt:
-            json.dump(text, out_file, indent=2, sort_keys=True)
+    if capture_output:
+        if fmt_json:
+            final_result = json.loads(results.stdout)
         else:
-            out_file.writelines(text)
+            final_result = str(results.stdout, 'UTF-8')
+
+        if debug:
+            print("Debug: %s" % final_result)
+
+        return final_result
 
 
-usage_message = '''confluent flink quickstart [-h] --name NAME [--env ENV] [--cloud {aws,azure,gcp}] [--region 
-REGION] [--geo {eu,us}]'''
+def flink_shell(cmd_args):
+    if debug:
+        print(f'Starting Flink shell {cmd_args}')
+    subprocess.run(cmd_args, capture_output=False)
+
+
+def process_cluster_list(existing_clusters, curr_flink_region):
+    if not existing_clusters:
+        print(f'No existing database found, will create one in {curr_flink_region}')
+    else:
+        for cluster in existing_clusters:
+            if cluster['region'] == flink_region:
+                kafka_cluster = cluster['name']
+                if debug:
+                    print(f'Found a database, {kafka_cluster} with region {curr_flink_region} using that for Flink')
+                return cluster
+        if debug:
+            print(f'No exising database found in region {curr_flink_region}, will create one')
+
+
+usage_message = '''confluent flink quickstart [-h] --name NAME [--units NUM-UNITS] [--env ENV] [--region REGION] '''
 
 parser = argparse.ArgumentParser(description='Creates Flink compute pool '
-                                             'Associates a Kafka cluster for it'
-                                             'creating one if none found'
+                                             'Associates a Kafka cluster for it '
+                                             'creating one if none found '
                                              'then starts a Flink SQL cli session'
                                              '\nThis plugin assumes confluent CLI v3.0.0 or greater',
                                  usage=usage_message)
 
 parser.add_argument('--name', required=True, help='The name for your Flink compute pool')
+parser.add_argument('--units', default='10', choices=['5', '10'], help='The number of Confluent Flink Units')
 parser.add_argument('--env', help='The environment name')
-parser.add_argument('--cloud', default='aws', choices=['aws', 'azure', 'gcp'],
-                    help='Cloud Provider, Defaults to aws')
-parser.add_argument('--region', default='us-east-1', help='Cloud region e.g us-west-2 (aws), '
-                                                          'westus (azure), us-west1 (gcp)  Defaults to us-west-2')
-parser.add_argument('--geo', choices=['eu', 'us'], default='us',
-                    help='Cloud geographical region Defaults to us')
+parser.add_argument('--region', default='us-east-1', choices=['us-east-1', 'us-east-2', 'eu-central-1', 'eu-west-1'],
+                    help='Cloud region defaults to us-east-1')
+parser.add_argument('--cloud', default='aws', choices=['aws'],
+                    help='Cloud defaults to aws')
 parser.add_argument("--debug", choices=['y', 'n'], default='n',
                     help="Prints the results of every command, defaults to n")
 
 args = parser.parse_args()
-save_dir = args.dir
-if save_dir is None:
-    save_dir = str(os.path.join(Path.home(), "Downloads"))
-
 debug = False if args.debug == 'n' else True
+flink_region = args.region
 
-print("Creating the Kafka cluster")
-cluster_json = cli(["confluent", "kafka", "cluster", "create", args.name,
-                    "-o", "json", "--cloud", args.cloud, "--region", args.region], debug)
+print("Searching for existing database (Kafka cluster)")
+cluster_list = cli(["confluent", "kafka", "cluster", "list",
+                    "-o", "json"])
 
-print("Generating API keys for the Kafka cluster")
-creds_json = cli(["confluent", "api-key", "create", "--resource", cluster_json['id'], "-o", "json"], debug)
+cluster_to_use = process_cluster_list(cluster_list, flink_region)
+if cluster_to_use:
+    print(f'Using database {cluster_to_use}')
+    database = cluster_to_use['id']
+else:
+    if debug:
+        print("Creating the database (Kafka cluster)")
+    cluster_json = cli(["confluent", "kafka", "cluster", "create", args.name + '_kafka-cluster',
+                        "-o", "json", "--cloud", args.cloud, "--region", args.region])
+    database = cluster_json['id']
+    if debug:
+        print(f"Kafka cluster created {cluster_json}")
+    geo = flink_region[0:2]
+    if debug:
+        print(f"Enabling Schema Registry in geo {geo}")
+    sr_json = cli(["confluent", "schema-registry", "cluster", "enable", "--cloud",
+                   cluster_json['provider'], "--geo", geo, "-o", "json"])
+    if debug:
+        print(f"Schema Registry enabled {sr_json}")
 
-print("Enabling Schema Registry")
-sr_json = cli(["confluent", "schema-registry", "cluster", "enable", "--cloud",
-               cluster_json['provider'], "--geo", args.geo, "-o", "json"], debug)
+pool_name = args.name + '_flink_pool'
+flink_output = cli(["confluent", "flink", "compute-pool", "create", pool_name,
+                    "--cloud", args.cloud, "--region", args.region,
+                    "--max-cfu", args.units, "-o", "json"])
+if debug:
+    print(f'Created Flink pool {flink_output}')
 
-print("Generating API keys for Schema Registry")
-sr_creds_json = cli(["confluent", "api-key", "create", "--resource", sr_json['id'], "-o", "json"], debug)
+print("Waiting for the Flink pool status to be PROVISIONED. Checking every 10 seconds")
+status = flink_output['status']
 
-print("Enabling the API key for the Kafka cluster")
-cli(["confluent", "api-key", "use", creds_json['api_key'], "--resource", cluster_json['id']], debug, fmt_json=False)
+while status != 'PROVISIONED':
+    if debug:
+        print("Checking status of flink compute pool")
+    time.sleep(10)
+    describe_result = cli(["confluent", "flink", "compute-pool",
+                           "describe", flink_output['id'], "-o", "json"])
+    status = describe_result['status']
 
-print("Setting created cluster for use in subsequent commands")
-cli(["confluent", "kafka", "cluster", "use", cluster_json['id']], debug, fmt_json=False)
-
-print("Generating client configuration")
-client_config = cli(["confluent", "kafka", "client-config", "create", args.client,
-                     "--api-key", creds_json['api_key'],
-                     "--api-secret", creds_json['api_secret'],
-                     "--schema-registry-api-key", sr_creds_json['api_key'],
-                     "--schema-registry-api-secret", sr_creds_json['api_secret']],
-                    debug, fmt_json=False)
-
-cluster_keys_file = save_dir + '/' + "cluster-api-keys-" + cluster_json['id'] + ".json"
-write_to_file(cluster_keys_file, creds_json)
-
-ts = date_string = f'{datetime.now():%Y-%m-%d_%H-%M-%S%z}'
-sr_keys_file = save_dir + '/' + "sr-api-keys-" + ts + '_' + sr_json['id'] + ".json"
-write_to_file(sr_keys_file, sr_creds_json)
-
-client_configs_file = save_dir + '/' + args.client + '_configs_' + cluster_json['id'] + ".properties"
-write_to_file(client_configs_file, client_config, json_fmt=False)
+print("Starting interactive Flink shell now")
+cli(["confluent", "flink", "shell", "--compute-pool", flink_output['id'],
+     "--database", database], capture_output=False)

@@ -1,4 +1,4 @@
-description: Creates a flink compute pool, associates an existing database or creates one when none is present, then starts a flink shell session
+description: Creates a Flink compute pool, associates an existing database or creates one when none is present, then starts a Flink shell session
 dependencies:
   - name: Python
     version: "3"

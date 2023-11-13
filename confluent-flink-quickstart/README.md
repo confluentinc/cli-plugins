@@ -13,11 +13,6 @@
 ```text
 usage: confluent flink quickstart [-h] --name NAME [--units NUM-UNITS] [--env ENV] [--region REGION] 
 
-Creates a Flink compute pool.
-Look for existing Kafka clusters and prompt the user to select one as the database for the Flink compute pool.
-Creating one is an option as well.                                           
-If there are no existing Kafka clusters, the plugin will automatically create one.
-Then it starts a Flink SQL CLI session
 
 This plugin assumes confluent CLI v3.0.0 or greater
 

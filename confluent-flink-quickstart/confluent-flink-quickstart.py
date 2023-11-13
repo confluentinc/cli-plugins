@@ -119,7 +119,7 @@ def process_cluster_list(existing_clusters, curr_flink_region):
 
 usage_message = '''confluent flink quickstart [-h] --name NAME [--units NUM-UNITS] [--env ENV] [--region REGION] '''
 
-parser = argparse.ArgumentParser(description='Creates a Flink compute pool.\n'
+parser = argparse.ArgumentParser(description='Create a Flink compute pool.\n'
                                              'Looks for exising Kafka clusters '
                                              'and prompt the user to select one as a database for the Flink pool. \n'
                                              'Creating one is an option as well.\n'

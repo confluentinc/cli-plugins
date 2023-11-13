@@ -1,9 +1,9 @@
 ### [confluent flink quickstart](confluent-flink-quickstart.py)
 - Creates Flink compute pool
-    - Displays existing database(s) (cluster) if available
+    - Displays existing databases (Kafka clusters) if available
     - Prompts user to select one or create one
     - If no database is found in the region, it will create one
-    - If creating a new cluster, also enables Schema Registry for it 
+    - If the plugin creates a new Kafka cluster, it also enables Schema Registry
 - Creates a Flink shell session once the pool is running
 - 
 #### Requirements
@@ -14,10 +14,10 @@
 usage: confluent flink quickstart [-h] --name NAME [--units NUM-UNITS] [--env ENV] [--region REGION] 
 
 Creates a Flink compute pool.
-Looks for exising Kafka clusters and prompts the user to select one as the database for the Flink pool.
+Look for existing Kafka clusters and prompt the user to select one as the database for the Flink compute pool.
 Creating one is an option as well.                                           
-If there are no existing clusters, the plugin will automatically create one.
-Then it starts a Flink SQL cli session
+If there are no existing Kafka clusters, the plugin will automatically create one.
+Then it starts a Flink SQL CLI session
 
 This plugin assumes confluent CLI v3.0.0 or greater
 

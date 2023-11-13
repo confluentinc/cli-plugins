@@ -19,10 +19,7 @@ import time
 
 
 class Cluster:
-    def __init__(self,
-                 cid,
-                 name,
-                 _topics):
+    def __init__(self, cid, name, _topics):
         self.cid = cid
         self.name = name
         self.topics = _topics
@@ -86,7 +83,7 @@ def get_cluster_id_for_flink_pool(_candidate_clusters):
             print(table_format.format(cluster.cid, cluster.name, str(cluster.topics)))
 
         while True:
-            choice = input("Enter a cluster id to use or 'create' to use a new one for Flink > ")
+            choice = input("Enter a Kafka cluster ID to use or 'create' to use a new one for Flink > ")
             if choice:
                 if choice.lower() == 'create':
                     _cluster_id = create_cluster_with_schema_registry()
@@ -122,9 +119,9 @@ def process_cluster_list(existing_clusters, curr_flink_region):
 
 usage_message = '''confluent flink quickstart [-h] --name NAME [--units NUM-UNITS] [--env ENV] [--region REGION] '''
 
-parser = argparse.ArgumentParser(description='Creates Flink compute pool.\n'
+parser = argparse.ArgumentParser(description='Creates a Flink compute pool.\n'
                                              'Looks for exising Kafka clusters '
-                                             'and prompts the user to select one as a database for the Flink pool. \n'
+                                             'and prompt the user to select one as a database for the Flink pool. \n'
                                              'Creating one is an option as well.\n'
                                              'If there are no existing clusters, the plugin will create one.\n'
                                              'Then it starts a Flink SQL cli session'
@@ -162,12 +159,12 @@ flink_json = cli(["confluent", "flink", "compute-pool", "create", pool_name,
 if debug:
     print(f'Created Flink pool {flink_json}')
 
-print("Waiting for the Flink pool status to be PROVISIONED. Checking every 10 seconds")
+print("Waiting for the Flink compute pool status to be PROVISIONED. Checking every 10 seconds")
 status = flink_json['status']
 
 while status != 'PROVISIONED':
     if debug:
-        print("Checking status of flink compute pool")
+        print("Checking status of Flink compute pool")
     time.sleep(10)
     describe_result = cli(["confluent", "flink", "compute-pool",
                            "describe", flink_json['id'], "-o", "json"])

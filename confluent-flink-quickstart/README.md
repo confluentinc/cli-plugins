@@ -18,9 +18,10 @@ This plugin assumes you have installed the latest Confluent CLI v3
 
 options:
   -h, --help            show this help message and exit
-  --name NAME           The name for your Flink compute pool
-  --units {5,10}        The number of Confluent Flink Units
-  --env ENV             The environment name
+  --name NAME           The name for your Flink compute pool 
+                        and the prefix of a Kafka cluster name if one is created
+  --max-cfu {5,10}      The number of Confluent Flink Units
+  --environment         The environment id
   --region {us-east-1,us-east-2,eu-central-1,eu-west-1}
                         Cloud region defaults to us-east-1
   --cloud {aws}         Cloud defaults to aws

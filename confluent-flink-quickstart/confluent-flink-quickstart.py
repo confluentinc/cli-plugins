@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 import argparse
+import datetime
 import subprocess
 import json
 import time
@@ -44,11 +45,11 @@ def cli(cmd_args, capture_output=True, fmt_json=True):
         return final_result
 
 
-def create_cluster_with_schema_registry():
+def create_cluster_with_schema_registry(name, region, cloud):
     if debug:
         print("Creating the database (Kafka cluster)")
-    cluster_json = cli(["confluent", "kafka", "cluster", "create", args.name + '_kafka-cluster',
-                        "-o", "json", "--cloud", args.cloud, "--region", args.region])
+    cluster_json = cli(["confluent", "kafka", "cluster", "create", name + '_kafka-cluster',
+                        "-o", "json", "--cloud", cloud, "--region", region])
     created_cluster_id = cluster_json['id']
     if debug:
         print(f"Kafka cluster created {cluster_json}")
@@ -62,40 +63,49 @@ def create_cluster_with_schema_registry():
     return created_cluster_id
 
 
-def get_cluster_id_for_flink_pool(_candidate_clusters):
-    if _candidate_clusters:
-        cluster_with_topics = {}
+def associate_topics_with_clusters(_candidate_clusters):
+    cluster_with_topics = {}
+    for cluster in _candidate_clusters:
+        _cluster_id = cluster['id']
+        topics_json = cli(["confluent", "kafka", "topic", "list", "--cluster", _cluster_id, '-o', 'json'])
+        topics = []
+        for topic in topics_json:
+            topics.append(topic['name'])
+        cluster_with_topics[_cluster_id] = (Cluster(_cluster_id, cluster['name'], topics))
+        if debug:
+            print(f'Found topics {topics} for cluster {_cluster_id}')
+    return cluster_with_topics
+
+
+def prompt_user_to_pick_cluster_id(cluster_with_topics, name, region, cloud):
+    while True:
+        choice = input("Enter a Kafka cluster ID to use or 'create' to use a new one for Flink > ")
+        if choice:
+            if choice.lower() == 'create':
+                _cluster_id = create_cluster_with_schema_registry(name, region, cloud)
+                break
+            if choice in cluster_with_topics:
+                _cluster_id = choice
+                break
+
+        print(f'{choice} is not valid')
+    return _cluster_id
+
+
+def get_cluster_id_for_flink_pool(_candidate_clusters, name, region, cloud):
+    if not _candidate_clusters:
+        _cluster_id = create_cluster_with_schema_registry(name, region, cloud)
+    else:
         if debug:
             print(f'Using databases {_candidate_clusters}')
-        for cluster in _candidate_clusters:
-            _cluster_id = cluster['id']
-            topics_json = cli(["confluent", "kafka", "topic", "list", "--cluster", _cluster_id, '-o', 'json'])
-            topics = []
-            for topic in topics_json:
-                topics.append(topic['name'])
-            cluster_with_topics[_cluster_id] = (Cluster(_cluster_id, cluster['name'], topics))
-            if debug:
-                print(f'Found topics {topics} for cluster {_cluster_id}')
+        cluster_with_topics = associate_topics_with_clusters(_candidate_clusters)
 
         print("Found the following databases with tables")
         print(table_format.format("CLUSTER ID", "CLUSTER NAME", "TOPICS"))
         for cluster in cluster_with_topics.values():
             print(table_format.format(cluster.cid, cluster.name, str(cluster.topics)))
 
-        while True:
-            choice = input("Enter a Kafka cluster ID to use or 'create' to use a new one for Flink > ")
-            if choice:
-                if choice.lower() == 'create':
-                    _cluster_id = create_cluster_with_schema_registry()
-                    break
-                if choice in cluster_with_topics:
-                    _cluster_id = choice
-                    break
-
-            print(f'{choice} is not valid')
-
-    else:
-        _cluster_id = create_cluster_with_schema_registry()
+        _cluster_id = prompt_user_to_pick_cluster_id(cluster_with_topics, name, region, cloud)
 
     return _cluster_id
 
@@ -117,45 +127,50 @@ def process_cluster_list(existing_clusters, curr_flink_region):
         return clusters
 
 
-usage_message = '''confluent flink quickstart [-h] --name NAME [--units NUM-UNITS] [--env ENV] [--region REGION] '''
+usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu NUM-UNITS] 
+[--environment Environment ID] [--region REGION] [--cloud CLOUD]'''
 
 parser = argparse.ArgumentParser(description='Create a Flink compute pool.\n'
                                              'Looks for exising Kafka clusters '
-                                             'and prompt the user to select one as a database for the Flink pool. \n'
+                                             'and prompts the user to select one as a database for the Flink pool. \n'
                                              'Creating one is an option as well.\n'
                                              'If there are no existing clusters, the plugin will create one.\n'
-                                             'Then it starts a Flink SQL cli session'
+                                             'Then it starts a Flink SQL shell'
                                              '\nThis plugin assumes confluent CLI v3.0.0 or greater',
                                  usage=usage_message)
+parser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
 
-parser.add_argument('--name', required=True, help='The name for your Flink compute pool')
-parser.add_argument('--units', default='5', choices=['5', '10'], help='The number of Confluent Flink Units')
-parser.add_argument('--env', help='The environment name')
+parser.add_argument('--name', required=True, help='The name for your Flink compute pool '
+                                                  'and the prefix of a Kafka cluster name if one is created')
+parser.add_argument('--max-cfu', default='5', choices=['5', '10'], help='The number of Confluent Flink Units')
+parser.add_argument('--environment', help='Environment ID')
 parser.add_argument('--region', default='us-east-1', choices=['us-east-1', 'us-east-2', 'eu-central-1', 'eu-west-1'],
-                    help='Cloud region defaults to us-east-1')
+                    help='The cloud region to use')
 parser.add_argument('--cloud', default='aws', choices=['aws'],
-                    help='Cloud defaults to aws')
-parser.add_argument("--debug", choices=['y', 'n'], default='n',
-                    help="Prints the results of every command, defaults to n")
+                    help='The cloud provider to use')
+parser.add_argument("--debug", action='store_true',
+                    help="Prints the results of every command")
 
 args = parser.parse_args()
-debug = False if args.debug == 'n' else True
+debug = args.debug
 flink_region = args.region
 
-table_format = "{:<30} {:<30} {:<30}"
+table_format = "{:<45} {:<45} {:<45}"
+flink_plugin_start_time = datetime.datetime.now()
+max_wait_seconds = 500
 
 print("Searching for existing databases (Kafka clusters)")
 cluster_list = cli(["confluent", "kafka", "cluster", "list",
                     "-o", "json"])
 
 candidate_clusters = process_cluster_list(cluster_list, flink_region)
-cluster_id = get_cluster_id_for_flink_pool(candidate_clusters)
+cluster_id = get_cluster_id_for_flink_pool(candidate_clusters, args.name, args.region, args.cloud)
 
-pool_name = args.name + '_flink_pool'
+pool_name = args.name
 print("Creating the Flink pool")
 flink_json = cli(["confluent", "flink", "compute-pool", "create", pool_name,
                   "--cloud", args.cloud, "--region", args.region,
-                  "--max-cfu", args.units, "-o", "json"])
+                  "--max-cfu", args.max_cfu, "-o", "json"])
 if debug:
     print(f'Created Flink pool {flink_json}')
 
@@ -165,10 +180,16 @@ status = flink_json['status']
 while status != 'PROVISIONED':
     if debug:
         print("Checking status of Flink compute pool")
+    provision_wait_time = datetime.datetime.now() - flink_plugin_start_time
+    if provision_wait_time.total_seconds() > max_wait_seconds:
+        print(f'Time waiting for Flink compute pool provisioning exceeded {max_wait_seconds/60} '
+              f'minutes, exiting now. Contact Confluent Cloud help for troubleshooting')
+        exit(1)
     time.sleep(10)
     describe_result = cli(["confluent", "flink", "compute-pool",
                            "describe", flink_json['id'], "-o", "json"])
     status = describe_result['status']
+    
 
 print("Starting interactive Flink shell now")
 cli(["confluent", "flink", "shell", "--compute-pool", flink_json['id'],

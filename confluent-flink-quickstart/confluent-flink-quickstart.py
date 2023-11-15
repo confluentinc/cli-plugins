@@ -157,7 +157,7 @@ flink_region = args.region
 
 table_format = "{:<45} {:<45} {:<45}"
 flink_plugin_start_time = datetime.datetime.now()
-max_wait_seconds = 500
+max_wait_seconds = 300
 
 print("Searching for existing databases (Kafka clusters)")
 cluster_list = cli(["confluent", "kafka", "cluster", "list",

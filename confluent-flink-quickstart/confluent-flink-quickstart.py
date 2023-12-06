@@ -154,10 +154,15 @@ parser.add_argument("--debug", action='store_true',
 args = parser.parse_args()
 debug = args.debug
 flink_region = args.region
+environment = args.environment
 
 table_format = "{:<45} {:<45} {:<45}"
 flink_plugin_start_time = datetime.datetime.now()
 max_wait_seconds = 300
+
+if environment is not None:
+    print(f'Setting the active environment to {environment}')
+    cli(["confluent", "environment", "use", environment], capture_output=False)
 
 print("Searching for existing databases (Kafka clusters)")
 cluster_list = cli(["confluent", "kafka", "cluster", "list",

@@ -203,7 +203,7 @@ def wait_for_datagen_connectors(connect_cluster_ids):
 
 
 usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu NUM-UNITS] 
-[--environment Environment NAME] [--region REGION] [--cloud CLOUD]'''
+[--environment-name Environment NAME] [--region REGION] [--cloud CLOUD]'''
 
 parser = argparse.ArgumentParser(description='Create a Flink compute pool.\n'
                                              'Looks for existing Kafka clusters '
@@ -218,7 +218,7 @@ parser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
 parser.add_argument('--name', required=True, help='The name for your Flink compute pool '
                                                   'and the environment / Kafka cluster prefix if either is created')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], help='The number of Confluent Flink Units')
-parser.add_argument('--environment', help='Environment name to use, will create it if the environment does not exist')
+parser.add_argument('--environment-name', help='Environment name to use, will create it if the environment does not exist')
 parser.add_argument('--region', default='us-east-1', choices=['us-east-1', 'us-east-2', 'eu-central-1', 'eu-west-1'],
                     help='The cloud region to use')
 parser.add_argument('--cloud', default='aws', choices=['aws'],
@@ -235,7 +235,7 @@ parser.add_argument("--debug", action='store_true',
 args = parser.parse_args()
 debug = args.debug
 flink_region = args.region
-environment_name = args.environment
+environment_name = args.environment_name
 datagen_quickstarts = args.datagen_quickstarts
 
 if args.debug:

@@ -60,6 +60,13 @@ def create_cluster_with_schema_registry(name, region, cloud):
     return created_cluster_id
 
 
+def create_environment(name):
+    print(f'Creating new environment {name}')
+    new_env_json = cli(["confluent", "environment", "create", name,
+                        "-o", "json"])
+    return new_env_json['id']
+
+
 def associate_topics_with_clusters(_candidate_clusters):
     cluster_with_topics = {}
     for cluster in _candidate_clusters:
@@ -196,7 +203,7 @@ def wait_for_datagen_connectors(connect_cluster_ids):
 
 
 usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu NUM-UNITS] 
-[--environment Environment ID] [--region REGION] [--cloud CLOUD]'''
+[--environment-name Environment NAME] [--region REGION] [--cloud CLOUD]'''
 
 parser = argparse.ArgumentParser(description='Create a Flink compute pool.\n'
                                              'Looks for existing Kafka clusters '
@@ -211,7 +218,7 @@ parser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
 parser.add_argument('--name', required=True, help='The name for your Flink compute pool '
                                                   'and the environment / Kafka cluster prefix if either is created')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], help='The number of Confluent Flink Units')
-parser.add_argument('--environment', help='Environment ID')
+parser.add_argument('--environment-name', help='Environment name to use, will create it if the environment does not exist')
 parser.add_argument('--region', default='us-east-1', choices=['us-east-1', 'us-east-2', 'eu-central-1', 'eu-west-1'],
                     help='The cloud region to use')
 parser.add_argument('--cloud', default='aws', choices=['aws'],
@@ -228,7 +235,7 @@ parser.add_argument("--debug", action='store_true',
 args = parser.parse_args()
 debug = args.debug
 flink_region = args.region
-environment = args.environment
+environment_name = args.environment_name
 datagen_quickstarts = args.datagen_quickstarts
 
 if args.debug:
@@ -237,16 +244,20 @@ if args.debug:
 table_format = "{:<45} {:<45} {:<45}"
 flink_plugin_start_time = datetime.datetime.now()
 max_wait_seconds = 600
-
-if environment is None:
+env_id = None
+if environment_name is not None:
+    all_env_json = cli(["confluent", "environment", "list", "-o", "json"])
+    for env_json in all_env_json:
+        if environment_name == env_json['name']:
+            env_id = env_json['id']
+    if not env_id:
+        env_id = create_environment(environment_name)
+else:
     environment_name = args.name + '_environment'
-    print(f'Creating new environment {environment_name}')
-    env_json = cli(["confluent", "environment", "create", environment_name,
-                    "-o", "json"])
-    environment = env_json['id']
+    env_id = create_environment(environment_name)
 
-print(f'Setting the active environment to {environment}')
-cli(["confluent", "environment", "use", environment], capture_output=False)
+print(f'Setting the active environment to {environment_name}')
+cli(["confluent", "environment", "use", env_id], capture_output=False)
 
 print("Searching for existing databases (Kafka clusters)")
 cluster_list = cli(["confluent", "kafka", "cluster", "list",

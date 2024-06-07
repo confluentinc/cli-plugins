@@ -20,20 +20,22 @@ from datetime import datetime
 import os
 
 
-def cli(cmd_args, print_output, fmt_json=True):
-    results = subprocess.run(cmd_args, capture_output=True)
+def cli(cmd_args, print_output, capture_output=True, fmt_json=True):
+    results = subprocess.run(cmd_args, capture_output=capture_output)
     if results.returncode != 0:
         print(str(results.stderr, 'UTF-8'))
         exit(results.returncode)
-    if fmt_json:
-        final_result = json.loads(results.stdout)
-    else:
-        final_result = str(results.stdout, 'UTF-8')
 
-    if print_output:
-        print("Debug: %s" % final_result)
+    if capture_output:
+        if fmt_json:
+            final_result = json.loads(results.stdout)
+        else:
+            final_result = str(results.stdout, 'UTF-8')
 
-    return final_result
+        if print_output:
+            print("Debug: %s" % final_result)
+
+        return final_result
 
 
 def write_to_file(file_name, text, json_fmt=True):
@@ -43,6 +45,26 @@ def write_to_file(file_name, text, json_fmt=True):
             json.dump(text, out_file, indent=2, sort_keys=True)
         else:
             out_file.writelines(text)
+
+
+def resolve_environment(environment_name, debug):
+    env_id = None
+    if environment_name is not None:
+        all_env_json = cli(["confluent", "environment", "list", "-o", "json"], debug)
+        for env_json in all_env_json:
+            if environment_name == env_json['name']:
+                # environment names are unique so it's safe to short circuit
+                env_id = env_json['id']
+                break
+        if not env_id:
+            print(f'Creating new environment {environment_name}')
+            new_env_json = cli(["confluent", "environment", "create", environment_name, "-o", "json"], debug)
+            env_id = new_env_json['id']
+    else:
+        env_id = create_environment(environment_name)
+
+    print(f'Setting the active environment to {environment_name} ({env_id})')
+    cli(["confluent", "environment", "use", env_id], debug, capture_output=False)
 
 
 usage_message = '''confluent cloud-kickstart [-h] --name NAME [--env ENV] [--cloud {aws,azure,gcp}] [--region REGION] [--geo {apac,eu,us}]
@@ -56,7 +78,7 @@ parser = argparse.ArgumentParser(description='Creates a Kafka cluster with API k
                                  usage=usage_message)
 
 parser.add_argument('--name', required=True, help='The name for your Confluent Kafka Cluster')
-parser.add_argument('--env', help='The environment name')
+parser.add_argument('--environment-name', help='Environment name to use, will create it if the environment does not exist')
 parser.add_argument('--cloud', default='aws', choices=['aws', 'azure', 'gcp'],
                     help='Cloud Provider, Defaults to aws')
 parser.add_argument('--region', default='us-west-2', help='Cloud region e.g us-west-2 (aws), '
@@ -67,6 +89,8 @@ parser.add_argument('--client', choices=['clojure', 'cpp', 'csharp', 'go', 'groo
                                          'ktor', 'nodejs', 'python', 'restapi',
                                          'ruby', 'rust', 'scala', 'springboot'],
                     default='java', help='Properties file used by client (default java)')
+parser.add_argument("--output-format", choices=['properties', 'stdout'], default='properties',
+                    help="Whether to output a client configuration properties file or human-readable credentials to the terminal, defaults to 'properties'")
 parser.add_argument("--debug", choices=['y', 'n'], default='n',
                     help="Prints the results of every command, defaults to n")
 parser.add_argument("--dir", help='Directory to save credentials and client configs, defaults to download directory')
@@ -77,6 +101,8 @@ if save_dir is None:
     save_dir = str(os.path.join(Path.home(), "Downloads"))
 
 debug = False if args.debug == 'n' else True
+
+resolve_environment(args.environment_name, debug)
 
 print("Creating the Kafka cluster")
 cluster_json = cli(["confluent", "kafka", "cluster", "create", args.name,
@@ -98,20 +124,26 @@ cli(["confluent", "api-key", "use", creds_json['api_key'], "--resource", cluster
 print("Setting created cluster for use in subsequent commands")
 cli(["confluent", "kafka", "cluster", "use", cluster_json['id']], debug, fmt_json=False)
 
-print("Generating client configuration")
-client_config = cli(["confluent", "kafka", "client-config", "create", args.client,
-                     "--api-key", creds_json['api_key'],
-                     "--api-secret", creds_json['api_secret'],
-                     "--schema-registry-api-key", sr_creds_json['api_key'],
-                     "--schema-registry-api-secret", sr_creds_json['api_secret']],
-                    debug, fmt_json=False)
+if args.output_format == 'properties':
+    print("Generating client configuration")
+    client_config = cli(["confluent", "kafka", "client-config", "create", args.client,
+                         "--api-key", creds_json['api_key'],
+                         "--api-secret", creds_json['api_secret'],
+                         "--schema-registry-api-key", sr_creds_json['api_key'],
+                         "--schema-registry-api-secret", sr_creds_json['api_secret']],
+                        debug, fmt_json=False)
 
-cluster_keys_file = save_dir + '/' + "cluster-api-keys-" + cluster_json['id'] + ".json"
-write_to_file(cluster_keys_file, creds_json)
+    cluster_keys_file = save_dir + '/' + "cluster-api-keys-" + cluster_json['id'] + ".json"
+    write_to_file(cluster_keys_file, creds_json)
 
-ts = date_string = f'{datetime.now():%Y-%m-%d_%H-%M-%S%z}'
-sr_keys_file = save_dir + '/' + "sr-api-keys-" + ts + '_' + sr_json['id'] + ".json"
-write_to_file(sr_keys_file, sr_creds_json)
+    ts = date_string = f'{datetime.now():%Y-%m-%d_%H-%M-%S%z}'
+    sr_keys_file = save_dir + '/' + "sr-api-keys-" + ts + '_' + sr_json['id'] + ".json"
+    write_to_file(sr_keys_file, sr_creds_json)
 
-client_configs_file = save_dir + '/' + args.client + '_configs_' + cluster_json['id'] + ".properties"
-write_to_file(client_configs_file, client_config, json_fmt=False)
+    client_configs_file = save_dir + '/' + args.client + '_configs_' + cluster_json['id'] + ".properties"
+    write_to_file(client_configs_file, client_config, json_fmt=False)
+else:
+    print("\nKafka API key:    %s" % creds_json['api_key'])
+    print("Kafka API secret: %s\n" % creds_json['api_secret'])
+    print("Schema Registry API key:    %s" % sr_creds_json['api_key'])
+    print("Schema Registry API secret: %s" % sr_creds_json['api_secret'])

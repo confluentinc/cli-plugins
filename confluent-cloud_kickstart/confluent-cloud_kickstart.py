@@ -143,7 +143,11 @@ if args.output_format == 'properties':
     client_configs_file = save_dir + '/' + args.client + '_configs_' + cluster_json['id'] + ".properties"
     write_to_file(client_configs_file, client_config, json_fmt=False)
 else:
-    print("\nKafka API key:    %s" % creds_json['api_key'])
-    print("Kafka API secret: %s\n" % creds_json['api_secret'])
+    cluster_describe_json = cli(["confluent", "kafka", "cluster", "describe", cluster_json['id'], "-o", "json"], debug)
+    print("\nKafka bootstrap servers endpoint: %s" % cluster_describe_json['endpoint'].replace('SASL_SSL://',''))
+    print("Kafka API key:                    %s" % creds_json['api_key'])
+    print("Kafka API secret:                 %s\n" % creds_json['api_secret'])
+    sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"], debug)
+    print("\nSchema Registry Endpoint:   %s" % sr_describe_json['endpoint_url'])
     print("Schema Registry API key:    %s" % sr_creds_json['api_key'])
     print("Schema Registry API secret: %s" % sr_creds_json['api_secret'])

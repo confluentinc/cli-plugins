@@ -51,20 +51,8 @@ def create_cluster_with_schema_registry(name, region, cloud):
                         "-o", "json", "--cloud", cloud, "--region", region])
     created_cluster_id = cluster_json['id']
     logging.debug(f"Kafka cluster created {cluster_json}")
-    geo = flink_region[0:2]
-    logging.debug(f"Enabling Schema Registry in geo {geo}")
-    sr_json = cli(["confluent", "schema-registry", "cluster", "enable", "--cloud",
-                   cluster_json['provider'], "--geo", geo, "-o", "json"])
-    logging.debug(f"Schema Registry enabled {sr_json}")
 
     return created_cluster_id
-
-
-def create_environment(name):
-    print(f'Creating new environment {name}')
-    new_env_json = cli(["confluent", "environment", "create", name,
-                        "-o", "json"])
-    return new_env_json['id']
 
 
 def associate_topics_with_clusters(_candidate_clusters):
@@ -202,6 +190,24 @@ def wait_for_datagen_connectors(connect_cluster_ids):
         time.sleep(10)
 
 
+def resolve_environment(environment_name):
+    env_id = None
+    all_env_json = cli(["confluent", "environment", "list", "-o", "json"])
+    for env_json in all_env_json:
+        if environment_name == env_json['name']:
+            # environment names are unique so it's safe to short circuit
+            env_id = env_json['id']
+            break
+    if not env_id:
+        print(f'Creating new environment {environment_name}')
+        new_env_json = cli(["confluent", "environment", "create", environment_name,
+                            "--governance-package", "essentials", "-o", "json"])
+        env_id = new_env_json['id']
+
+    print(f'Setting the active environment to {environment_name} ({env_id})')
+    cli(["confluent", "environment", "use", env_id], capture_output=False)
+
+
 usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu NUM-UNITS] 
 [--environment-name Environment NAME] [--region REGION] [--cloud CLOUD]'''
 
@@ -211,7 +217,7 @@ parser = argparse.ArgumentParser(description='Create a Flink compute pool.\n'
                                              'If there are no existing clusters, the plugin will create one.\n'
                                              'Creates zero or more datagen source connectors to seed the database.\n'
                                              'Then it starts a Flink SQL shell.\n'
-                                             'This plugin assumes confluent CLI v3.0.0 or greater.',
+                                             'This plugin assumes confluent CLI v4.0.0 or greater.',
                                  usage=usage_message)
 parser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
 
@@ -235,7 +241,7 @@ parser.add_argument("--debug", action='store_true',
 args = parser.parse_args()
 debug = args.debug
 flink_region = args.region
-environment_name = args.environment_name
+environment_name = args.environment_name if args.environment_name else args.name + '_environment'
 datagen_quickstarts = args.datagen_quickstarts
 
 if args.debug:
@@ -244,24 +250,11 @@ if args.debug:
 table_format = "{:<45} {:<45} {:<45}"
 flink_plugin_start_time = datetime.datetime.now()
 max_wait_seconds = 600
-env_id = None
-if environment_name is not None:
-    all_env_json = cli(["confluent", "environment", "list", "-o", "json"])
-    for env_json in all_env_json:
-        if environment_name == env_json['name']:
-            env_id = env_json['id']
-    if not env_id:
-        env_id = create_environment(environment_name)
-else:
-    environment_name = args.name + '_environment'
-    env_id = create_environment(environment_name)
 
-print(f'Setting the active environment to {environment_name}')
-cli(["confluent", "environment", "use", env_id], capture_output=False)
+resolve_environment(environment_name)
 
 print("Searching for existing databases (Kafka clusters)")
-cluster_list = cli(["confluent", "kafka", "cluster", "list",
-                    "-o", "json"])
+cluster_list = cli(["confluent", "kafka", "cluster", "list", "-o", "json"])
 
 candidate_clusters = process_cluster_list(cluster_list, flink_region)
 cluster_id = get_cluster_id_for_flink_pool(candidate_clusters, args.name, args.region, args.cloud)

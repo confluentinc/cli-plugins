@@ -49,42 +49,40 @@ def write_to_file(file_name, text, json_fmt=True):
 
 def resolve_environment(environment_name, debug):
     env_id = None
-    if environment_name is not None:
-        all_env_json = cli(["confluent", "environment", "list", "-o", "json"], debug)
-        for env_json in all_env_json:
-            if environment_name == env_json['name']:
-                # environment names are unique so it's safe to short circuit
-                env_id = env_json['id']
-                break
-        if not env_id:
-            print(f'Creating new environment {environment_name}')
-            new_env_json = cli(["confluent", "environment", "create", environment_name, "-o", "json"], debug)
-            env_id = new_env_json['id']
-    else:
-        env_id = create_environment(environment_name)
+    all_env_json = cli(["confluent", "environment", "list", "-o", "json"], debug)
+    for env_json in all_env_json:
+        if environment_name == env_json['name']:
+            # environment names are unique so it's safe to short circuit
+            env_id = env_json['id']
+            break
+    if not env_id:
+        print(f'Creating new environment {environment_name}')
+        new_env_json = cli(["confluent", "environment", "create", environment_name,
+                            "--governance-package", "essentials", "-o", "json"], debug)
+        env_id = new_env_json['id']
 
     print(f'Setting the active environment to {environment_name} ({env_id})')
     cli(["confluent", "environment", "use", env_id], debug, capture_output=False)
 
 
-usage_message = '''confluent cloud-kickstart [-h] --name NAME [--env ENV] [--cloud {aws,azure,gcp}] [--region REGION] [--geo {apac,eu,us}]
-[--client {clojure,cpp,csharp,go,groovy,java,kotlin,ktor,nodejs,python,restapi,ruby,rust,scala,springboot}] [--debug {y,n}] [--dir DIR]
+usage_message = '''confluent cloud-kickstart [-h] --name NAME [--env ENV] [--cloud {aws,azure,gcp}] [--region REGION]
+[--client {clojure,cpp,csharp,go,groovy,java,kotlin,ktor,nodejs,python,restapi,ruby,rust,scala,springboot}] 
+[--output-format {properties, stdout} [--debug {y,n}] [--dir DIR]
 '''
 
 parser = argparse.ArgumentParser(description='Creates a Kafka cluster with API keys, '
-                                             'Schema Registry with API keys and a client '
+                                             'Schema Registry API keys, and optionally a client '
                                              'config properties file.'
-                                             '\nThis plugin assumes confluent CLI v3.0.0 or greater',
+                                             '\nThis plugin assumes confluent CLI v4.0.0 or greater',
                                  usage=usage_message)
 
 parser.add_argument('--name', required=True, help='The name for your Confluent Kafka Cluster')
-parser.add_argument('--environment-name', help='Environment name to use, will create it if the environment does not exist')
+parser.add_argument('--environment-name', help='Environment name to use, will create it if the environment does not exist',
+                    required=True)
 parser.add_argument('--cloud', default='aws', choices=['aws', 'azure', 'gcp'],
                     help='Cloud Provider, Defaults to aws')
 parser.add_argument('--region', default='us-west-2', help='Cloud region e.g us-west-2 (aws), '
                                                           'westus (azure), us-west1 (gcp)  Defaults to us-west-2')
-parser.add_argument('--geo', choices=['apac', 'eu', 'us'], default='us',
-                    help='Cloud geographical region Defaults to us')
 parser.add_argument('--client', choices=['clojure', 'cpp', 'csharp', 'go', 'groovy', 'java', 'kotlin',
                                          'ktor', 'nodejs', 'python', 'restapi',
                                          'ruby', 'rust', 'scala', 'springboot'],
@@ -111,12 +109,9 @@ cluster_json = cli(["confluent", "kafka", "cluster", "create", args.name,
 print("Generating API keys for the Kafka cluster")
 creds_json = cli(["confluent", "api-key", "create", "--resource", cluster_json['id'], "-o", "json"], debug)
 
-print("Enabling Schema Registry")
-sr_json = cli(["confluent", "schema-registry", "cluster", "enable", "--cloud",
-               cluster_json['provider'], "--geo", args.geo, "-o", "json"], debug)
-
 print("Generating API keys for Schema Registry")
-sr_creds_json = cli(["confluent", "api-key", "create", "--resource", sr_json['id'], "-o", "json"], debug)
+sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"], debug)
+sr_creds_json = cli(["confluent", "api-key", "create", "--resource", sr_describe_json['cluster'], "-o", "json"], debug)
 
 print("Enabling the API key for the Kafka cluster")
 cli(["confluent", "api-key", "use", creds_json['api_key'], "--resource", cluster_json['id']], debug, fmt_json=False)
@@ -147,7 +142,6 @@ else:
     print("\nKafka bootstrap servers endpoint: %s" % cluster_describe_json['endpoint'].replace('SASL_SSL://',''))
     print("Kafka API key:                    %s" % creds_json['api_key'])
     print("Kafka API secret:                 %s\n" % creds_json['api_secret'])
-    sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"], debug)
     print("\nSchema Registry Endpoint:   %s" % sr_describe_json['endpoint_url'])
     print("Schema Registry API key:    %s" % sr_creds_json['api_key'])
     print("Schema Registry API secret: %s" % sr_creds_json['api_secret'])

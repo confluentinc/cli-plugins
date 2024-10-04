@@ -18,10 +18,17 @@ import json
 from pathlib import Path
 from datetime import datetime
 import os
+import time
 
 
-def cli(cmd_args, print_output, capture_output=True, fmt_json=True):
+def cli(cmd_args, print_output, retries=0, retry_wait_seconds=1, capture_output=True, fmt_json=True):
     results = subprocess.run(cmd_args, capture_output=capture_output)
+
+    while results.returncode != 0 and retries > 0:
+        results = subprocess.run(cmd_args, capture_output=capture_output)
+        time.sleep(retry_wait_seconds)
+        retries -= 1
+
     if results.returncode != 0:
         print(str(results.stderr, 'UTF-8'))
         exit(results.returncode)
@@ -110,7 +117,8 @@ print("Generating API keys for the Kafka cluster")
 creds_json = cli(["confluent", "api-key", "create", "--resource", cluster_json['id'], "-o", "json"], debug)
 
 print("Generating API keys for Schema Registry")
-sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"], debug)
+sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"], debug,
+                       retries=15, retry_wait_seconds=5)
 sr_creds_json = cli(["confluent", "api-key", "create", "--resource", sr_describe_json['cluster'], "-o", "json"], debug)
 
 print("Enabling the API key for the Kafka cluster")

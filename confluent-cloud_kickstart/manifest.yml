@@ -1,4 +1,4 @@
-description: Creates a cluster, enables schema-registry, generates API keys, and outputs a client config file
+description: Creates a Kafka cluster, generates Kafka and Schema Registry API keys, and outputs a client config file
 dependencies:
 - name: Python
   version: "3"

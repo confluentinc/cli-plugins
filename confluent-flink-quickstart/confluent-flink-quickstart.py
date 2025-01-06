@@ -112,7 +112,7 @@ def process_cluster_list(existing_clusters, curr_flink_region):
                 logging.debug(f'Found a Kafka cluster, {kafka_cluster} with region {curr_flink_region}')
 
         if not clusters:
-            logging.debug(f'No exising database found in region {curr_flink_region}, will create one')
+            logging.debug(f'No existing database found in region {curr_flink_region}, will create one')
         return clusters
 
 
@@ -208,6 +208,13 @@ def resolve_environment(environment_name):
     cli(["confluent", "environment", "use", env_id], capture_output=False)
 
 
+def validate_region(cloud, region):
+    all_regions = cli(["confluent", "flink", "region", "list", "-o", "json"])
+    region_strings = [region['region'].lower() for region in all_regions if region['cloud'].lower() == cloud.lower()]
+    if region not in region_strings:
+        print(f"Invalid region for cloud provider {cloud}. Valid regions are: {', '.join(region_strings)}")
+        exit(1)
+
 usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu NUM-UNITS] 
 [--environment-name Environment NAME] [--region REGION] [--cloud CLOUD]'''
 
@@ -225,9 +232,8 @@ parser.add_argument('--name', required=True, help='The name for your Flink compu
                                                   'and the environment / Kafka cluster prefix if either is created')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], help='The number of Confluent Flink Units')
 parser.add_argument('--environment-name', help='Environment name to use, will create it if the environment does not exist')
-parser.add_argument('--region', default='us-east-1', choices=['us-east-1', 'us-east-2', 'eu-central-1', 'eu-west-1'],
-                    help='The cloud region to use')
-parser.add_argument('--cloud', default='aws', choices=['aws'],
+parser.add_argument('--region', default='us-east-1', help='The cloud region to use')
+parser.add_argument('--cloud', default='aws', choices=['aws', 'gcp', 'azure'],
                     help='The cloud provider to use')
 parser.add_argument('--datagen-quickstarts',
                     nargs='*',
@@ -251,6 +257,7 @@ table_format = "{:<45} {:<45} {:<45}"
 flink_plugin_start_time = datetime.datetime.now()
 max_wait_seconds = 600
 
+validate_region(args.cloud, flink_region)
 resolve_environment(environment_name)
 
 print("Searching for existing databases (Kafka clusters)")

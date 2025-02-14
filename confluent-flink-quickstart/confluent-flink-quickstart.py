@@ -17,6 +17,8 @@ import datetime
 import subprocess
 import json
 import logging
+import os
+import pathlib
 import tempfile
 import time
 
@@ -32,7 +34,7 @@ def cli(cmd_args, capture_output=True, fmt_json=True):
     logging.debug(f"CMD args {cmd_args}")
     results = subprocess.run(cmd_args, capture_output=capture_output)
     if results.returncode != 0:
-        print(str(results.stderr, 'UTF-8'))
+        logging.error(str(results.stderr, 'UTF-8'))
         exit(results.returncode)
     if capture_output:
         if fmt_json:
@@ -79,7 +81,7 @@ def prompt_user_to_pick_cluster_id(cluster_with_topics, name, region, cloud):
                 _cluster_id = choice
                 break
 
-        print(f'{choice} is not valid')
+        logging.info(f'{choice} is not valid')
     return _cluster_id
 
 
@@ -90,10 +92,10 @@ def get_cluster_id_for_flink_pool(_candidate_clusters, name, region, cloud):
         logging.debug(f'Using databases {_candidate_clusters}')
         cluster_with_topics = associate_topics_with_clusters(_candidate_clusters)
 
-        print("Found the following databases with tables")
-        print(table_format.format("CLUSTER ID", "CLUSTER NAME", "TOPICS"))
+        logging.info("Found the following databases with tables")
+        logging.info(table_format.format("CLUSTER ID", "CLUSTER NAME", "TOPICS"))
         for cluster in cluster_with_topics.values():
-            print(table_format.format(cluster.cid, cluster.name, str(cluster.topics)))
+            logging.info(table_format.format(cluster.cid, cluster.name, str(cluster.topics)))
 
         _cluster_id = prompt_user_to_pick_cluster_id(cluster_with_topics, name, region, cloud)
 
@@ -102,7 +104,7 @@ def get_cluster_id_for_flink_pool(_candidate_clusters, name, region, cloud):
 
 def process_cluster_list(existing_clusters, curr_flink_region):
     if not existing_clusters:
-        print(f'No existing database found, will create one in {curr_flink_region}')
+        logging.info(f'No existing database found, will create one in {curr_flink_region}')
     else:
         clusters = []
         for existing_cluster in existing_clusters:
@@ -117,15 +119,15 @@ def process_cluster_list(existing_clusters, curr_flink_region):
 
 
 def wait_for_flink_compute_pool(initial_status, compute_pool_id, flink_plugin_start_time):
-    print("Waiting for the Flink compute pool status to be PROVISIONED. Checking every 10 seconds")
+    logging.info("Waiting for the Flink compute pool status to be PROVISIONED. Checking every 10 seconds")
     status = initial_status
 
     while status != 'PROVISIONED':
         logging.debug("Checking status of Flink compute pool")
         provision_wait_time = datetime.datetime.now() - flink_plugin_start_time
         if provision_wait_time.total_seconds() > max_wait_seconds:
-            print(f'Time waiting for Flink compute pool provisioning exceeded {max_wait_seconds / 60} '
-                  f'minutes, exiting now. Contact Confluent Cloud help for troubleshooting')
+            logging.error((f'Time waiting for Flink compute pool provisioning exceeded {max_wait_seconds / 60} '
+                           f'minutes, exiting now. Contact Confluent Cloud help for troubleshooting'))
             exit(1)
         time.sleep(10)
         describe_result = cli(["confluent", "flink", "compute-pool",
@@ -134,7 +136,7 @@ def wait_for_flink_compute_pool(initial_status, compute_pool_id, flink_plugin_st
 
 
 def create_datagen_connectors():
-    print(f'Creating API key for Datagen Source connector quickstart(s) {datagen_quickstarts}')
+    logging.info(f'Creating API key for Datagen Source connector quickstart(s) {datagen_quickstarts}')
     api_key = cli(["confluent", "api-key", "create", "--resource", cluster_id,
                    "-o", "json"])
     connect_cluster_ids = []
@@ -162,7 +164,7 @@ def create_datagen_connectors():
 
 
 def wait_for_datagen_connectors(connect_cluster_ids):
-    print("Waiting for the Datagen connector status(es) to be RUNNING. Checking every 10 seconds")
+    logging.info("Waiting for the Datagen connector status(es) to be RUNNING. Checking every 10 seconds")
     while True:
         found_unprovisioned_connector = False
         for connect_cluster_id in connect_cluster_ids:
@@ -178,13 +180,13 @@ def wait_for_datagen_connectors(connect_cluster_ids):
                     cli(["confluent", "connect", "cluster", "resume", connect_cluster_id], capture_output=False)
 
         if not found_unprovisioned_connector:
-            print('Connector(s) provisioned')
+            logging.info('Connector(s) provisioned')
             break
 
         provision_wait_time = datetime.datetime.now() - flink_plugin_start_time
         if provision_wait_time.total_seconds() > max_wait_seconds:
-            print(f'Time waiting for connector provisioning exceeded {max_wait_seconds / 60} '
-                  f'minutes, exiting now. Contact Confluent Cloud help for troubleshooting')
+            logging.error((f'Time waiting for connector provisioning exceeded {max_wait_seconds / 60} '
+                           f'minutes, exiting now. Contact Confluent Cloud help for troubleshooting'))
             exit(1)
 
         time.sleep(10)
@@ -199,21 +201,45 @@ def resolve_environment(environment_name):
             env_id = env_json['id']
             break
     if not env_id:
-        print(f'Creating new environment {environment_name}')
+        logging.info(f'Creating new environment {environment_name}')
         new_env_json = cli(["confluent", "environment", "create", environment_name,
                             "--governance-package", "essentials", "-o", "json"])
         env_id = new_env_json['id']
 
-    print(f'Setting the active environment to {environment_name} ({env_id})')
+    logging.info(f'Setting the active environment to {environment_name} ({env_id})')
     cli(["confluent", "environment", "use", env_id], capture_output=False)
+    return env_id
 
 
 def validate_region(cloud, region):
     all_regions = cli(["confluent", "flink", "region", "list", "-o", "json"])
     region_strings = [region['region'].lower() for region in all_regions if region['cloud'].lower() == cloud.lower()]
     if region not in region_strings:
-        print(f"Invalid region for cloud provider {cloud}. Valid regions are: {', '.join(region_strings)}")
+        logging.error(f"Invalid region for cloud provider {cloud}. Valid regions are: {', '.join(region_strings)}")
         exit(1)
+
+
+def generate_table_api_client_config(client_config_file, cloud, region, env_id, compute_pool_id):
+    flink_api_key_json = cli(["confluent", "api-key", "create", "--resource", "flink",
+                      "--cloud", cloud, "--region", region,
+                      "--environment", env_id, "-o", "json"])
+    org_describe_json = cli(["confluent", "organization", "describe", "-o", "json"])
+    flink_api_key_describe_json = cli(["confluent", "api-key", "describe", flink_api_key_json['api_key'], "-o", "json"])
+    config_path = pathlib.Path(client_config_file)
+    config_path.parent.mkdir(exist_ok=True, parents=True)
+    file_contents = (
+        f'client.cloud={cloud}\n'
+        f'client.region={region}\n'
+        f"client.flink-api-key={flink_api_key_json['api_key']}\n"
+        f"client.flink-api-secret={flink_api_key_json['api_secret']}\n"
+        f"client.organization-id={org_describe_json['id']}\n"
+        f'client.environment-id={env_id}\n'
+        f"client.compute-pool-id={compute_pool_id}\n"
+        f"client.princixpal-id={flink_api_key_describe_json[0]['owner']}"
+    )
+    with open(client_config_file, 'w') as file:
+        file.write(file_contents)
+    logging.info(f'Created Table API client config file {client_config_file} containing:\n\n{file_contents}')
 
 usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu NUM-UNITS] 
 [--environment-name Environment NAME] [--region REGION] [--cloud CLOUD]'''
@@ -223,7 +249,7 @@ parser = argparse.ArgumentParser(description='Create a Flink compute pool.\n'
                                              'and prompts the user to select one as a database for the Flink pool. \n'
                                              'If there are no existing clusters, the plugin will create one.\n'
                                              'Creates zero or more datagen source connectors to seed the database.\n'
-                                             'Then it starts a Flink SQL shell.\n'
+                                             'Then it either generates a Table API client config file or starts a Flink SQL shell.\n'
                                              'This plugin assumes confluent CLI v4.0.0 or greater.',
                                  usage=usage_message)
 parser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
@@ -241,6 +267,7 @@ parser.add_argument('--datagen-quickstarts',
                          'list to start more than one.  E.g., --datagen-quickstarts shoe_orders shoe_customers shoes. '
                          'See the available quickstarts here: '
                          'https://docs.confluent.io/cloud/current/connectors/cc-datagen-source.html')
+parser.add_argument('--table-api-client-config-file', help='Path to Table API client config file to create')
 parser.add_argument("--debug", action='store_true',
                     help="Prints the results of every command")
 
@@ -250,17 +277,20 @@ flink_region = args.region
 environment_name = args.environment_name if args.environment_name else args.name + '_environment'
 datagen_quickstarts = args.datagen_quickstarts
 
-if args.debug:
-    logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(format='%(message)s', level=logging.DEBUG if args.debug else logging.INFO)
+
+if args.table_api_client_config_file is not None and os.path.exists(args.table_api_client_config_file):
+    logging.error(f'Table API config file {args.table_api_client_config_file} already exists')
+    exit(1)
 
 table_format = "{:<45} {:<45} {:<45}"
 flink_plugin_start_time = datetime.datetime.now()
 max_wait_seconds = 600
 
 validate_region(args.cloud, flink_region)
-resolve_environment(environment_name)
+env_id = resolve_environment(environment_name)
 
-print("Searching for existing databases (Kafka clusters)")
+logging.info("Searching for existing databases (Kafka clusters)")
 cluster_list = cli(["confluent", "kafka", "cluster", "list", "-o", "json"])
 
 candidate_clusters = process_cluster_list(cluster_list, flink_region)
@@ -270,7 +300,7 @@ logging.debug(f'Setting the active Kafka cluster to {cluster_id}')
 cli(["confluent", "kafka", "cluster", "use", cluster_id], capture_output=False)
 
 pool_name = args.name
-print("Creating the Flink pool")
+logging.info("Creating the Flink pool")
 flink_json = cli(["confluent", "flink", "compute-pool", "create", pool_name,
                   "--cloud", args.cloud, "--region", args.region,
                   "--max-cfu", args.max_cfu, "-o", "json"])
@@ -282,6 +312,10 @@ if datagen_quickstarts is not None:
 
 wait_for_flink_compute_pool(flink_json['status'], flink_json['id'], flink_plugin_start_time)
 
-print("Starting interactive Flink shell now")
-cli(["confluent", "flink", "shell", "--compute-pool", flink_json['id'],
-     "--database", cluster_id], capture_output=False)
+if args.table_api_client_config_file is not None:
+    generate_table_api_client_config(args.table_api_client_config_file,
+                                     args.cloud, flink_region, env_id, flink_json['id'])
+else:
+    logging.info("Starting interactive Flink shell now")
+    cli(["confluent", "flink", "shell", "--compute-pool", flink_json['id'],
+         "--database", cluster_id], capture_output=False)

@@ -235,7 +235,7 @@ def generate_table_api_client_config(client_config_file, cloud, region, env_id, 
         f"client.organization-id={org_describe_json['id']}\n"
         f'client.environment-id={env_id}\n'
         f"client.compute-pool-id={compute_pool_id}\n"
-        f"client.princixpal-id={flink_api_key_describe_json[0]['owner']}"
+        f"client.principal-id={flink_api_key_describe_json[0]['owner']}"
     )
     with open(client_config_file, 'w') as file:
         file.write(file_contents)

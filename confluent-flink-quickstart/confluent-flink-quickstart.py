@@ -49,7 +49,7 @@ def cli(cmd_args, capture_output=True, fmt_json=True):
 
 def create_cluster_with_schema_registry(name, region, cloud):
     logging.debug("Creating the database (Kafka cluster)")
-    cluster_json = cli(["confluent", "kafka", "cluster", "create", name + '_kafka-cluster',
+    cluster_json = cli(["confluent", "kafka", "cluster", "create", name,
                         "-o", "json", "--cloud", cloud, "--region", region])
     created_cluster_id = cluster_json['id']
     logging.debug(f"Kafka cluster created {cluster_json}")
@@ -258,6 +258,7 @@ parser.add_argument('--name', required=True, help='The name for your Flink compu
                                                   'and the environment / Kafka cluster prefix if either is created')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], help='The number of Confluent Flink Units')
 parser.add_argument('--environment-name', help='Environment name to use, will create it if the environment does not exist')
+parser.add_argument('--kafka-cluster-name', help='Kafka cluster name to use when creating a new cluster.')
 parser.add_argument('--region', default='us-east-1', help='The cloud region to use')
 parser.add_argument('--cloud', default='aws', choices=['aws', 'gcp', 'azure'],
                     help='The cloud provider to use')
@@ -294,7 +295,8 @@ logging.info("Searching for existing databases (Kafka clusters)")
 cluster_list = cli(["confluent", "kafka", "cluster", "list", "-o", "json"])
 
 candidate_clusters = process_cluster_list(cluster_list, flink_region)
-cluster_id = get_cluster_id_for_flink_pool(candidate_clusters, args.name, args.region, args.cloud)
+cluster_name = args.kafka_cluster_name if args.kafka_cluster_name else args.name + '_kafka-cluster'
+cluster_id = get_cluster_id_for_flink_pool(candidate_clusters, cluster_name, args.region, args.cloud)
 
 logging.debug(f'Setting the active Kafka cluster to {cluster_id}')
 cli(["confluent", "kafka", "cluster", "use", cluster_id], capture_output=False)

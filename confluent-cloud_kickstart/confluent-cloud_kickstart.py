@@ -140,7 +140,8 @@ if args.output_format == 'properties':
     write_to_file(cluster_keys_file, creds_json)
 
     ts = date_string = f'{datetime.now():%Y-%m-%d_%H-%M-%S%z}'
-    sr_keys_file = save_dir + '/' + "sr-api-keys-" + ts + '_' + sr_json['id'] + ".json"
+    sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"], debug)
+    sr_keys_file = save_dir + '/' + "sr-api-keys-" + ts + '_' + sr_describe_json['cluster'] + ".json"
     write_to_file(sr_keys_file, sr_creds_json)
 
     client_configs_file = save_dir + '/' + args.client + '_configs_' + cluster_json['id'] + ".properties"

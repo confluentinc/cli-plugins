@@ -72,7 +72,7 @@ def associate_topics_with_clusters(_candidate_clusters):
 
 def prompt_user_to_pick_cluster_id(cluster_with_topics, name, region, cloud):
     while True:
-        choice = input("Enter a Kafka cluster ID to use or 'create' to use a new one for Flink > ")
+        choice = input("Enter a Kafka cluster ID to use or 'create' to use a new one for Flink > ").strip()
         if choice:
             if choice.lower() == 'create':
                 _cluster_id = create_cluster_with_schema_registry(name, region, cloud)
@@ -135,11 +135,16 @@ def wait_for_flink_compute_pool(initial_status, compute_pool_id, flink_plugin_st
         status = describe_result['status']
     logging.info(f"Flink compute pool {compute_pool_id} is {status}")
 
-def create_kafka_keys(cluster_id):
+def create_kafka_keys(cluster_id, kafka_api_key_filename):
     logging.info(f'Creating API key for Kafka cluster {cluster_id}')
     api_key = cli(["confluent", "api-key", "create", "--resource", cluster_id,
                    "-o", "json"])
     logging.debug(f'Created Kafka API key {api_key}')
+    # Save the api key to a file
+    with open(kafka_api_key_filename, 'w') as f:
+        f.write(f'username={api_key["api_key"]}\n')
+        f.write(f'password={api_key["api_secret"]}\n')
+    logging.info(f'Created Kafka API key saved to {kafka_api_key_filename}')
     return api_key
 
 def create_datagen_connectors(api_key):
@@ -323,7 +328,8 @@ logging.debug(f'Setting the active Kafka cluster to {cluster_id}')
 cli(["confluent", "kafka", "cluster", "use", cluster_id], capture_output=False)
 
 if args.create_kafka_keys or args.datagen_quickstarts:
-    api_key = create_kafka_keys(cluster_id)
+    kafka_api_key_filename = f'{environment_name}_{cluster_name}_kafka_key.properties'
+    api_key = create_kafka_keys(cluster_id, kafka_api_key_filename)
 
 pool_name = args.name
 logging.info("Creating the Flink pool")

@@ -19,11 +19,24 @@ This plugin assumes you have installed the latest Confluent CLI v3
 options:
   -h, --help            show this help message and exit
   --name NAME           The name for your Flink compute pool 
-                        and the prefix of a Kafka cluster name if one is created
-  --max-cfu {5,10}      The number of Confluent Flink Units
-  --environment         The environment id
-  --region {us-east-1,us-east-2,eu-central-1,eu-west-1}
-                        Cloud region defaults to us-east-1
-  --cloud {aws}         Cloud defaults to aws
-  --debug               Prints the results of every command, defaults to false
+                        and the environment / Kafka cluster prefix if either is created
+  --max-cfu {5,10}      The number of Confluent Flink Units (default: 5)
+  --environment-name ENVIRONMENT_NAME
+                        Environment name to use, will create it if the environment does not exist
+  --kafka-cluster-name KAFKA_CLUSTER_NAME
+                        Kafka cluster name to use when creating a new cluster
+  --region REGION       The cloud region to use (default: us-east-1)
+  --cloud {aws,gcp,azure}
+                        The cloud provider to use (default: aws)
+  --datagen-quickstarts [DATAGEN_QUICKSTARTS ...]
+                        Datagen Source connector quickstarts to launch in Confluent Cloud.
+                        Provide a space-separated list to start more than one.
+                        E.g., --datagen-quickstarts shoe_orders shoe_customers shoes.
+                        See the available quickstarts here:
+                        https://docs.confluent.io/cloud/current/connectors/cc-datagen-source.html
+  --create-kafka-keys   Create Kafka API keys for the cluster
+  --table-api-client-config-file TABLE_API_CLIENT_CONFIG_FILE
+                        Path to Table API client config file to create
+  --debug               Prints the results of every command
+  --no-flink-shell      Turns off the default behaviour of starting a Flink Shell at the end
 ```

@@ -133,12 +133,16 @@ def wait_for_flink_compute_pool(initial_status, compute_pool_id, flink_plugin_st
         describe_result = cli(["confluent", "flink", "compute-pool",
                                "describe", compute_pool_id, "-o", "json"])
         status = describe_result['status']
+    logging.info(f"Flink compute pool {compute_pool_id} is {status}")
 
-
-def create_datagen_connectors():
-    logging.info(f'Creating API key for Datagen Source connector quickstart(s) {datagen_quickstarts}')
+def create_kafka_keys(cluster_id):
+    logging.info(f'Creating API key for Kafka cluster {cluster_id}')
     api_key = cli(["confluent", "api-key", "create", "--resource", cluster_id,
                    "-o", "json"])
+    logging.debug(f'Created Kafka API key {api_key}')
+    return api_key
+
+def create_datagen_connectors(api_key):
     connect_cluster_ids = []
     for datagen_quickstart in datagen_quickstarts:
         with tempfile.NamedTemporaryFile(mode='w+t') as temp_file_object:
@@ -218,6 +222,17 @@ def validate_region(cloud, region):
         logging.error(f"Invalid region for cloud provider {cloud}. Valid regions are: {', '.join(region_strings)}")
         exit(1)
 
+def get_flink_compute_pool(compute_pool_name):
+    logging.info(f"Checking for existing Flink compute pool {compute_pool_name}")
+    flink_json = None
+    flink_compute_pool_json = cli(["confluent", "flink", "compute-pool", "list", "-o", "json"])
+    for flink_compute_pool in flink_compute_pool_json:
+        if flink_compute_pool['name'] == compute_pool_name:
+            flink_json = cli(["confluent", "flink", "compute-pool", "describe", flink_compute_pool['id'],
+                              "-o", "json"])
+            logging.info(f"Found existing Flink compute pool {flink_json['id']}")
+            return flink_json
+    return None
 
 def generate_table_api_client_config(client_config_file, cloud, region, env_id, compute_pool_id):
     flink_api_key_json = cli(["confluent", "api-key", "create", "--resource", "flink",
@@ -241,15 +256,17 @@ def generate_table_api_client_config(client_config_file, cloud, region, env_id, 
         file.write(file_contents)
     logging.info(f'Created Table API client config file {client_config_file} containing:\n\n{file_contents}')
 
-usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu NUM-UNITS] 
-[--environment-name Environment NAME] [--region REGION] [--cloud CLOUD]'''
+usage_message = '''confluent flink quickstart [-h] --name NAME [--max-cfu {5,10}] [--environment-name ENVIRONMENT_NAME] 
+[--kafka-cluster-name KAFKA_CLUSTER_NAME] [--region REGION] [--cloud {aws,gcp,azure}] 
+[--datagen-quickstarts [DATAGEN_QUICKSTARTS ...]] [--create-kafka-keys] 
+[--table-api-client-config-file TABLE_API_CLIENT_CONFIG_FILE] [--debug] [--no-flink-shell]'''
 
 parser = argparse.ArgumentParser(description='Create a Flink compute pool.\n'
                                              'Looks for existing Kafka clusters '
                                              'and prompts the user to select one as a database for the Flink pool. \n'
                                              'If there are no existing clusters, the plugin will create one.\n'
                                              'Creates zero or more datagen source connectors to seed the database.\n'
-                                             'Then it either generates a Table API client config file or starts a Flink SQL shell.\n'
+                                             'Then it either generates a Table API client config file, starts a Flink SQL shell, or completes.\n'
                                              'This plugin assumes confluent CLI v4.0.0 or greater.',
                                  usage=usage_message)
 parser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
@@ -268,9 +285,13 @@ parser.add_argument('--datagen-quickstarts',
                          'list to start more than one.  E.g., --datagen-quickstarts shoe_orders shoe_customers shoes. '
                          'See the available quickstarts here: '
                          'https://docs.confluent.io/cloud/current/connectors/cc-datagen-source.html')
+parser.add_argument('--create-kafka-keys', action='store_true',
+                    help='Create Kafka API keys for the cluster')
 parser.add_argument('--table-api-client-config-file', help='Path to Table API client config file to create')
 parser.add_argument("--debug", action='store_true',
                     help="Prints the results of every command")
+parser.add_argument("--no-flink-shell", action='store_true',
+                    help="Turns off the default behaviour of starting a Flink Shell at the end")
 
 args = parser.parse_args()
 debug = args.debug
@@ -301,16 +322,22 @@ cluster_id = get_cluster_id_for_flink_pool(candidate_clusters, cluster_name, arg
 logging.debug(f'Setting the active Kafka cluster to {cluster_id}')
 cli(["confluent", "kafka", "cluster", "use", cluster_id], capture_output=False)
 
+if args.create_kafka_keys or args.datagen_quickstarts:
+    api_key = create_kafka_keys(cluster_id)
+
 pool_name = args.name
 logging.info("Creating the Flink pool")
-flink_json = cli(["confluent", "flink", "compute-pool", "create", pool_name,
-                  "--cloud", args.cloud, "--region", args.region,
-                  "--max-cfu", args.max_cfu, "-o", "json"])
-logging.debug(f'Created Flink pool {flink_json}')
+flink_json = get_flink_compute_pool(pool_name)
+if flink_json is None:
+    logging.info(f"Creating Flink pool {pool_name}")
+    flink_json = cli(["confluent", "flink", "compute-pool", "create", pool_name,
+                      "--cloud", args.cloud, "--region", args.region,
+                      "--max-cfu", args.max_cfu, "-o", "json"])
+    logging.debug(f'Created Flink pool {flink_json}')
 
 # Launch connector(s) before waiting for the Flink compute pool so that we spin up all resources as early as possible
-if datagen_quickstarts is not None:
-    create_datagen_connectors()
+if datagen_quickstarts:
+    create_datagen_connectors(api_key)
 
 wait_for_flink_compute_pool(flink_json['status'], flink_json['id'], flink_plugin_start_time)
 
@@ -318,6 +345,9 @@ if args.table_api_client_config_file is not None:
     generate_table_api_client_config(args.table_api_client_config_file,
                                      args.cloud, flink_region, env_id, flink_json['id'])
 else:
-    logging.info("Starting interactive Flink shell now")
-    cli(["confluent", "flink", "shell", "--compute-pool", flink_json['id'],
-         "--database", cluster_id], capture_output=False)
+    if not args.no_flink_shell:
+        logging.info("Starting interactive Flink shell now")
+        cli(["confluent", "flink", "shell", "--compute-pool", flink_json['id'],
+             "--database", cluster_id], capture_output=False)
+    else:
+        logging.info("Quickstart complete. Exiting.")

@@ -229,3 +229,6 @@ cython_debug/
 #.idea/
 
 notes.txt
+
+# Mac specific
+.DS_Store

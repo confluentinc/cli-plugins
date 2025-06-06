@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-#  Copyright (c) 2023 Confluent
+#  Copyright (c) 2025 Confluent
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -358,7 +358,7 @@ def generate_unified_config(cluster_id=None, kafka_api_key=None, flink_json=None
 # ARGUMENT PARSING
 # =============================================================================
 
-usage_message = '''confluent course quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--properties-file PROPERTIES_FILE] [--debug]'''
+usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--properties-file PROPERTIES_FILE] [--debug]'''
 
 parser = argparse.ArgumentParser(description='Create and configure Confluent Cloud resources modularly.\n\n'
                                              'ALWAYS CREATES:\n'
@@ -376,13 +376,13 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              '  • Unified configuration file with all service credentials\n\n'
                                              'EXAMPLES:\n'
                                              '  # Environment only:\n'
-                                             '  confluent course quickstart --environment-name "confluent_course"\n\n'
+                                             '  confluent quickstart --environment-name "my_environment"\n\n'
                                              '  # Kafka setup:\n'
-                                             '  confluent course quickstart --environment-name "confluent_course" --kafka-cluster-name "cluster" --create-kafka-key\n\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --create-kafka-key\n\n'
                                              '  # Full data platform:\n'
-                                             '  confluent course quickstart --environment-name "confluent_course" --kafka-cluster-name "cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key\n\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key\n\n'
                                              '  # Custom properties file location:\n'
-                                             '  confluent course quickstart --environment-name "confluent_course" --properties-file "./src/main/resources/config.properties"\n\n'
+                                             '  confluent quickstart --environment-name "my_environment" --properties-file "./src/main/resources/config.properties"\n\n'
                                              'Requires confluent CLI v4.0.0 or greater.',
                                  usage=usage_message,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)

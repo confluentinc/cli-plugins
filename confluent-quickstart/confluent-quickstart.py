@@ -266,114 +266,134 @@ def create_schema_registry_key(environment_name):
 # CONFIGURATION FUNCTIONS
 # =============================================================================
 
-def generate_unified_config(cluster_id=None, kafka_api_key=None, flink_json=None, flink_api_key=None, 
-                           sr_api_key=None, env_id=None, args=None, properties_file_path='config.properties'):
-    """Generate unified config.properties file with all available connection details"""
-    config_filename = properties_file_path
-    file_contents_lines = []
+def generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, kafka_properties_file):
+    """Generate kafka.properties file with Kafka and Schema Registry connection details"""
+    content_parts = []
     
-    # Add Kafka configuration if available
-    if cluster_id and kafka_api_key:
+    # Environment ID comment
+    if env_id:
+        content_parts.append(f'# Environment ID: {env_id}')
+    
+    # Kafka configuration
+    if cluster_id:
         cluster_describe_json = cli(["confluent", "kafka", "cluster", "describe", cluster_id, "-o", "json"])
         bootstrap_servers = cluster_describe_json['endpoint'].replace('SASL_SSL://', '')
         
-        file_contents_lines.extend([
-            '# Kafka Configuration',
-            f'bootstrap.servers={bootstrap_servers}',
-            'security.protocol=SASL_SSL',
-            'sasl.mechanisms=PLAIN',
-            f'sasl.username={kafka_api_key["api_key"]}',
-            f'sasl.password={kafka_api_key["api_secret"]}',
-            'compression.type=gzip',
-            'compression.level=9',
-            ''
-        ])
-    
-    # Add Flink configuration if available
-    if flink_json and flink_api_key and env_id and args:
-        org_describe_json = cli(["confluent", "organization", "describe", "-o", "json"])
+        kafka_config = f"""# Kafka Configuration
+bootstrap.servers={bootstrap_servers}
+security.protocol=SASL_SSL
+sasl.mechanisms=PLAIN"""
         
-        file_contents_lines.extend([
-            '# Flink Configuration',
-            f'client.cloud={args.cloud}',
-            f'client.region={args.region}',
-            f'client.flink-api-key={flink_api_key["api_key"]}',
-            f'client.flink-api-secret={flink_api_key["api_secret"]}',
-            f'client.organization-id={org_describe_json["id"]}',
-            f'client.environment-id={env_id}',
-            f'client.compute-pool-id={flink_json["id"]}',
-            f'client.principal-id={flink_api_key["principal_id"]}' if 'principal_id' in flink_api_key else '',
-            ''
-        ])
+        # Add credentials
+        if kafka_api_key:
+            kafka_config += f"""
+sasl.username={kafka_api_key["api_key"]}
+sasl.password={kafka_api_key["api_secret"]}"""
+        else:
+            kafka_config += f"""
+# sasl.username=<your-api-key>
+# sasl.password=<your-api-secret>"""
+        
+        content_parts.append(kafka_config)
     
-    # Add Schema Registry configuration if available
-    if sr_api_key and env_id:
-        # Get Schema Registry endpoint
+    # Schema Registry configuration
+    if sr_api_key:
         sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"])
-        
-        file_contents_lines.extend([
-            '# Schema Registry Configuration',
-            f'schema.registry.url={sr_describe_json["endpoint_url"]}',
-            'schema.registry.basic.auth.credentials.source=USER_INFO',
-            f'schema.registry.basic.auth.user.info={sr_api_key["api_key"]}:{sr_api_key["api_secret"]}',
-            ''
-        ])
+        sr_config = f"""# Schema Registry Configuration
+schema.registry.url={sr_describe_json["endpoint_url"]}
+basic.auth.credentials.source=USER_INFO
+basic.auth.user.info={sr_api_key["api_key"]}:{sr_api_key["api_secret"]}"""
+        content_parts.append(sr_config)
     
-    # Add environment information
-    if env_id:
-        file_contents_lines.extend([
-            '# Environment Configuration',
-            f'environment.id={env_id}',
-            ''
-        ])
-    
-    # Add general connection settings
-    if cluster_id or flink_json:
-        file_contents_lines.extend([
-            '# Connection Settings',
-            'request.timeout.ms=20000',
-            'retry.backoff.ms=500',
-            ''
-        ])
-    
-    # Remove trailing empty line and join
-    if file_contents_lines and file_contents_lines[-1] == '':
-        file_contents_lines.pop()
-    
-    file_contents = '\n'.join(file_contents_lines)
+    # Join all parts with double newlines
+    file_contents = '\n\n'.join(content_parts)
     
     # Create directory if it doesn't exist
-    config_dir = os.path.dirname(config_filename)
+    config_dir = os.path.dirname(kafka_properties_file)
     if config_dir and not os.path.exists(config_dir):
         os.makedirs(config_dir, exist_ok=True)
     
-    with open(config_filename, 'w') as file:
+    with open(kafka_properties_file, 'w') as file:
         file.write(file_contents)
     
-    logging.info(f'Created unified config file {config_filename} containing:\n\n{file_contents}')
-    return config_filename
+    logging.info(f'Created Kafka config file {kafka_properties_file} containing:\n\n{file_contents}')
+    return kafka_properties_file
+
+
+def generate_flink_config(flink_json, flink_api_key, env_id, args, flink_properties_file):
+    """Generate flink.properties file with Flink connection details"""
+    content_parts = []
+    
+    # Environment ID comment
+    if env_id:
+        content_parts.append(f'# Environment ID: {env_id}')
+    
+    # Flink configuration
+    if flink_json and env_id and args:
+        org_describe_json = cli(["confluent", "organization", "describe", "-o", "json"])
+        
+        flink_config = f"""# Flink Configuration
+client.cloud={args.cloud}
+client.region={args.region}
+client.organization-id={org_describe_json["id"]}
+client.environment-id={env_id}
+client.compute-pool-id={flink_json["id"]}"""
+        
+        # Add credentials
+        if flink_api_key:
+            if 'principal_id' in flink_api_key:
+                flink_config += f"""
+client.principal-id={flink_api_key["principal_id"]}"""
+            else:
+                flink_config += f"""
+# client.principal-id=<your-principal-id>"""
+            flink_config += f"""
+client.flink-api-key={flink_api_key["api_key"]}
+client.flink-api-secret={flink_api_key["api_secret"]}"""
+        else:
+            flink_config += f"""
+# client.principal-id=<your-principal-id>
+# client.flink-api-key=<your-flink-api-key>
+# client.flink-api-secret=<your-flink-api-secret>"""
+        
+        content_parts.append(flink_config)
+    
+    # Join all parts with double newlines
+    file_contents = '\n\n'.join(content_parts)
+    
+    # Create directory if it doesn't exist
+    config_dir = os.path.dirname(flink_properties_file)
+    if config_dir and not os.path.exists(config_dir):
+        os.makedirs(config_dir, exist_ok=True)
+    
+    with open(flink_properties_file, 'w') as file:
+        file.write(file_contents)
+    
+    logging.info(f'Created Flink config file {flink_properties_file} containing:\n\n{file_contents}')
+    return flink_properties_file
 
 
 # =============================================================================
 # ARGUMENT PARSING
 # =============================================================================
 
-usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--properties-file PROPERTIES_FILE] [--debug]'''
+usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--kafka-properties-file KAFKA_PROPERTIES_FILE] [--flink-properties-file FLINK_PROPERTIES_FILE] [--debug]'''
 
 parser = argparse.ArgumentParser(description='Create and configure Confluent Cloud resources modularly.\n\n'
                                              'ALWAYS CREATES:\n'
-                                             '  • Environment (required parameter)\n'
-                                             '  • Unified config.properties file with connection details\n\n'
+                                             '  • Environment (required parameter)\n\n'
                                              'CONDITIONALLY CREATES (based on parameters):\n'
                                              '  • Kafka cluster (if --kafka-cluster-name provided)\n'
                                              '  • Flink compute pool (if --compute-pool-name provided)\n'
-                                             '  • API keys (if corresponding --create-*-key flags set)\n\n'
+                                             '  • API keys (if corresponding --create-*-key flags set)\n'
+                                             '  • kafka.properties file (if Kafka resources created)\n'
+                                             '  • flink.properties file (if Flink resources created)\n\n'
                                              'RESOURCE HANDLING:\n'
                                              '  • Checks for existing resources and prompts for confirmation\n'
                                              '  • Validates region/cloud consistency for existing resources\n'
                                              '  • Exits gracefully if user declines to use existing resources\n\n'
                                              'OUTPUT:\n'
-                                             '  • Unified configuration file with all service credentials\n\n'
+                                             '  • Separate configuration files for each service with credentials\n\n'
                                              'EXAMPLES:\n'
                                              '  # Environment only:\n'
                                              '  confluent quickstart --environment-name "my_environment"\n\n'
@@ -381,8 +401,8 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --create-kafka-key\n\n'
                                              '  # Full data platform:\n'
                                              '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key\n\n'
-                                             '  # Custom properties file location:\n'
-                                             '  confluent quickstart --environment-name "my_environment" --properties-file "./src/main/resources/config.properties"\n\n'
+                                             '  # Custom properties file locations:\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-properties-file "./config/kafka.properties" --flink-properties-file "./config/flink.properties"\n\n'
                                              'Requires confluent CLI v4.0.0 or greater.',
                                  usage=usage_message,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -394,19 +414,21 @@ parser.add_argument('--kafka-cluster-name',
 parser.add_argument('--compute-pool-name', 
                     help='Name of the Flink compute pool to create or use (optional - if not specified, no compute pool created)')
 parser.add_argument('--create-kafka-key', action='store_true', 
-                    help='Create Kafka API keys and include in config.properties (requires --kafka-cluster-name)')
+                    help='Create Kafka API keys and include in kafka.properties (requires --kafka-cluster-name)')
 parser.add_argument('--create-flink-key', action='store_true', 
-                    help='Create Flink API keys and include in config.properties (requires --compute-pool-name)')
+                    help='Create Flink API keys and include in flink.properties (requires --compute-pool-name)')
 parser.add_argument('--create-sr-key', action='store_true', 
-                    help='Create Schema Registry API keys and include in config.properties (works independently)')
+                    help='Create Schema Registry API keys and include in kafka.properties (works independently)')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], 
                     help='The number of Confluent Flink Units for compute pool (default: %(default)s)')
 parser.add_argument('--region', default='us-east-1', 
                     help='The cloud region to use (default: %(default)s)')
 parser.add_argument('--cloud', default='aws', choices=['aws', 'gcp', 'azure'],
                     help='The cloud provider to use (default: %(default)s)')
-parser.add_argument('--properties-file', default='config.properties', 
-                    help='Path and filename for the properties file (default: %(default)s)')
+parser.add_argument('--kafka-properties-file', default='kafka.properties', 
+                    help='Path and filename for the Kafka properties file (default: %(default)s)')
+parser.add_argument('--flink-properties-file', default='flink.properties', 
+                    help='Path and filename for the Flink properties file (default: %(default)s)')
 parser.add_argument("--debug", action='store_true',
                     help="Enable debug logging with detailed command output")
 
@@ -439,14 +461,21 @@ compute_pool_name = args.compute_pool_name
 
 logging.basicConfig(format='%(message)s', level=logging.DEBUG if args.debug else logging.INFO)
 
-# Check if config.properties already exists and apply "check, warn, and confirm" pattern
-if os.path.exists(args.properties_file):
-    logging.warning(f'Config file {args.properties_file} already exists')
-    choice = input(f"Do you want to overwrite the existing {args.properties_file} file? (y/n): ").strip().lower()
+# Check if config files already exist and apply "check, warn, and confirm" pattern
+existing_files = []
+if kafka_cluster_name and os.path.exists(args.kafka_properties_file):
+    existing_files.append(args.kafka_properties_file)
+if compute_pool_name and os.path.exists(args.flink_properties_file):
+    existing_files.append(args.flink_properties_file)
+
+if existing_files:
+    files_str = ', '.join(existing_files)
+    logging.warning(f'Config file(s) {files_str} already exist')
+    choice = input(f"Do you want to overwrite the existing config file(s)? (y/n): ").strip().lower()
     if choice not in ['y', 'yes']:
         logging.info("Exiting without making changes.")
         exit(0)
-    logging.info(f'Will overwrite existing {args.properties_file} file')
+    logging.info(f'Will overwrite existing config file(s): {files_str}')
 
 flink_plugin_start_time = datetime.datetime.now()
 max_wait_seconds = 600
@@ -486,16 +515,20 @@ if compute_pool_name:
 if args.create_sr_key:
     sr_api_key = create_schema_registry_key(environment_name)
 
-# Always generate unified config.properties with available connection details
-generate_unified_config(
-    cluster_id=cluster_id,
-    kafka_api_key=kafka_api_key,
-    flink_json=flink_json,
-    flink_api_key=flink_api_key,
-    sr_api_key=sr_api_key,
-    env_id=env_id,
-    args=args,
-    properties_file_path=args.properties_file
-)
+# Generate separate config files based on what was created
+created_files = []
+
+# Generate Kafka config if Kafka cluster was created
+if cluster_id:
+    generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, args.kafka_properties_file)
+    created_files.append(args.kafka_properties_file)
+
+# Generate Flink config if Flink compute pool was created
+if flink_json:
+    generate_flink_config(flink_json, flink_api_key, env_id, args, args.flink_properties_file)
+    created_files.append(args.flink_properties_file)
+
+if not created_files:
+    logging.info("No config files were created (no resources were created)")
 
 logging.info("Quickstart complete. Exiting.")

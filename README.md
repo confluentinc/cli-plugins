@@ -14,6 +14,7 @@ Here's a list of the current plugins you can install for the confluent CLI:
 3. [confluent flink quickstart](confluent-flink-quickstart)
 4. [confluent login headless-sso](confluent-login-headless_sso/README.md)
 5. [confluent schema-registry schema purge](confluent-schema_registry-schema-purge/README.md)
+6. [confluent quickstart](confluent-quickstart/README.md)
 
 
 

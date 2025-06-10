@@ -1,0 +1,4 @@
+description: Create and configure Confluent Cloud environments, Kafka clusters, Flink compute pools, and API keys with a single command.
+dependencies:
+  - name: Python
+    version: "3" 

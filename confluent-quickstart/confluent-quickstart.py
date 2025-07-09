@@ -208,7 +208,7 @@ def wait_for_flink_compute_pool(initial_status, compute_pool_id, flink_plugin_st
     logging.info(f"Flink compute pool {compute_pool_id} is {status}")
 
 
-def create_flink_key(environment_name, cloud, region, env_id):
+def create_flink_key(cloud, region, env_id):
     """Create API key for Flink"""
     logging.info('Creating API key for Flink')
     
@@ -230,7 +230,7 @@ def create_flink_key(environment_name, cloud, region, env_id):
 # SCHEMA REGISTRY FUNCTIONS
 # =============================================================================
 
-def create_schema_registry_key(environment_name):
+def create_schema_registry_key():
     """Create API key for Schema Registry"""
     logging.info('Creating API key for Schema Registry')
     
@@ -266,7 +266,7 @@ def create_schema_registry_key(environment_name):
 # CONFIGURATION FUNCTIONS
 # =============================================================================
 
-def generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, kafka_properties_file):
+def generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, do_generate_java_config, kafka_properties_file):
     """Generate kafka.properties file with Kafka and Schema Registry connection details"""
     content_parts = []
     
@@ -282,20 +282,28 @@ def generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, kafka_p
         kafka_config = f"""# Kafka Configuration
 bootstrap.servers={bootstrap_servers}
 security.protocol=SASL_SSL
-sasl.mechanisms=PLAIN"""
+sasl.mechanism=PLAIN"""
         
         # Add credentials
-        if kafka_api_key:
-            kafka_config += f"""
+        if do_generate_java_config:
+            if kafka_api_key:
+                kafka_config += f"""
+sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username='{kafka_api_key["api_key"]}' password='{kafka_api_key["api_secret"]}';"""
+            else:
+                kafka_config += f"""
+# sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username='<your-api-key>' password='<your-api-secret>';"""
+        else: # librdkafka-based client config
+            if kafka_api_key:
+                kafka_config += f"""
 sasl.username={kafka_api_key["api_key"]}
 sasl.password={kafka_api_key["api_secret"]}"""
-        else:
-            kafka_config += f"""
+            else:
+                kafka_config += f"""
 # sasl.username=<your-api-key>
 # sasl.password=<your-api-secret>"""
-        
+
         content_parts.append(kafka_config)
-    
+
     # Schema Registry configuration
     if sr_api_key:
         sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"])
@@ -377,7 +385,7 @@ client.flink-api-secret={flink_api_key["api_secret"]}"""
 # ARGUMENT PARSING
 # =============================================================================
 
-usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--kafka-properties-file KAFKA_PROPERTIES_FILE] [--flink-properties-file FLINK_PROPERTIES_FILE] [--debug]'''
+usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--kafka-java-properties-file KAFKA_JAVA_PROPERTIES_FILE] [--kafka-librdkafka-properties-file KAFKA_LIBRDKAFKA_PROPERTIES_FILE] [--flink-properties-file FLINK_PROPERTIES_FILE] [--debug]'''
 
 parser = argparse.ArgumentParser(description='Create and configure Confluent Cloud resources modularly.\n\n'
                                              'ALWAYS CREATES:\n'
@@ -385,9 +393,10 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              'CONDITIONALLY CREATES (based on parameters):\n'
                                              '  • Kafka cluster (if --kafka-cluster-name provided)\n'
                                              '  • Flink compute pool (if --compute-pool-name provided)\n'
-                                             '  • API keys (if corresponding --create-*-key flags set)\n'
-                                             '  • kafka.properties file (if Kafka resources created)\n'
-                                             '  • flink.properties file (if Flink resources created)\n\n'
+                                             '  • API keys (if corresponding --create-*-key flags set, which would also require corresponding config file arguments)\n'
+                                             '  • kafka-java.properties file for Java / Kafka Streams clients (if --kafka-java-properties-file provided)\n'
+                                             '  • kafka-librdkafka.properties file for librdkafka clients (if --kafka-librdkafka-properties-file provided)\n'
+                                             '  • flink.properties file (if --flink-properties-file provided)\n\n'
                                              'RESOURCE HANDLING:\n'
                                              '  • Checks for existing resources and prompts for confirmation\n'
                                              '  • Validates region/cloud consistency for existing resources\n'
@@ -397,12 +406,12 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              'EXAMPLES:\n'
                                              '  # Environment only:\n'
                                              '  confluent quickstart --environment-name "my_environment"\n\n'
-                                             '  # Kafka setup:\n'
-                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --create-kafka-key\n\n'
-                                             '  # Full data platform:\n'
-                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key\n\n'
+                                             '  # Kafka setup (Java client config only):\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --create-kafka-key --kafka-java-properties-file\n\n'
+                                             '  # Full data platform (generates both Java and librdkafka Kafka client configs):\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key --kafka-java-properties-file --kafka-librdkafka-properties-file --flink-properties-file\n\n'
                                              '  # Custom properties file locations:\n'
-                                             '  confluent quickstart --environment-name "my_environment" --kafka-properties-file "./config/kafka.properties" --flink-properties-file "./config/flink.properties"\n\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-java-properties-file "./config/kafka.properties" --flink-properties-file "./config/flink.properties"\n\n'
                                              'Requires confluent CLI v4.0.0 or greater.',
                                  usage=usage_message,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -414,21 +423,23 @@ parser.add_argument('--kafka-cluster-name',
 parser.add_argument('--compute-pool-name', 
                     help='Name of the Flink compute pool to create or use (optional - if not specified, no compute pool created)')
 parser.add_argument('--create-kafka-key', action='store_true', 
-                    help='Create Kafka API keys and include in kafka.properties (requires --kafka-cluster-name)')
+                    help='Create Kafka API keys and include in Kafka properties file(s) (requires --kafka-cluster-name and one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)')
 parser.add_argument('--create-flink-key', action='store_true', 
-                    help='Create Flink API keys and include in flink.properties (requires --compute-pool-name)')
+                    help='Create Flink API keys and include in flink.properties (requires --compute-pool-name and --flink-properties-file)')
 parser.add_argument('--create-sr-key', action='store_true', 
-                    help='Create Schema Registry API keys and include in kafka.properties (works independently)')
+                    help='Create Schema Registry API keys and include in Kafka properties file(s) (works independently)')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], 
                     help='The number of Confluent Flink Units for compute pool (default: %(default)s)')
 parser.add_argument('--region', default='us-east-1', 
                     help='The cloud region to use (default: %(default)s)')
 parser.add_argument('--cloud', default='aws', choices=['aws', 'gcp', 'azure'],
                     help='The cloud provider to use (default: %(default)s)')
-parser.add_argument('--kafka-properties-file', default='kafka.properties', 
-                    help='Path and filename for the Kafka properties file (default: %(default)s)')
-parser.add_argument('--flink-properties-file', default='flink.properties', 
-                    help='Path and filename for the Flink properties file (default: %(default)s)')
+parser.add_argument('--kafka-java-properties-file', nargs='?', const='kafka-java.properties', default=None,
+                    help='Path and filename for the Kafka Java client (and Kafka Streams) properties file (default: %(const)s)')
+parser.add_argument('--kafka-librdkafka-properties-file', nargs='?', const='kafka-librdkafka.properties', default=None,
+                    help='Path and filename for the Kafka librdkafka-based client properties file (default: %(const)s)')
+parser.add_argument('--flink-properties-file', nargs='?', const='flink.properties', default=None,
+                    help='Path and filename for the Flink properties file (default: %(const)s)')
 parser.add_argument("--debug", action='store_true',
                     help="Enable debug logging with detailed command output")
 
@@ -444,6 +455,12 @@ if args.create_kafka_key and not args.kafka_cluster_name:
 
 if args.create_flink_key and not args.compute_pool_name:
     parser.error("--create-flink-key requires --compute-pool-name to be specified")
+
+if args.create_kafka_key and not args.kafka_java_properties_file and not args.kafka_librdkafka_properties_file:
+    parser.error("--create-kafka-key requires --kafka-java-properties-file and/or --kafka-librdkafka-properties-file to be specified")
+
+if args.create_flink_key and not args.flink_properties_file:
+    parser.error("--create-flink-key requires --flink-properties-file to be specified")
 
 # Validate that at least one resource is being created
 if not args.kafka_cluster_name and not args.compute_pool_name and not args.create_sr_key:
@@ -461,12 +478,21 @@ compute_pool_name = args.compute_pool_name
 
 logging.basicConfig(format='%(message)s', level=logging.DEBUG if args.debug else logging.INFO)
 
+config_files = [args.kafka_java_properties_file, args.kafka_librdkafka_properties_file, args.flink_properties_file]
+
+# Validate config files are unique. Use os.path.realpath to compare canonical paths (e.g., 'foo' and './foo' will be
+# considered duplicates)
+canonical_config_file_paths = [os.path.realpath(f) for f in config_files if f is not None]
+for canonical_config_file_path in canonical_config_file_paths:
+    if canonical_config_file_paths.count(canonical_config_file_path) > 1:
+        logging.error(f"Config file {canonical_config_file_path} specified multiple times. Exiting without making changes.")
+        exit(1)
+
 # Check if config files already exist and apply "check, warn, and confirm" pattern
 existing_files = []
-if kafka_cluster_name and os.path.exists(args.kafka_properties_file):
-    existing_files.append(args.kafka_properties_file)
-if compute_pool_name and os.path.exists(args.flink_properties_file):
-    existing_files.append(args.flink_properties_file)
+for config_file in config_files:
+    if config_file and os.path.exists(config_file):
+        existing_files.append(config_file)
 
 if existing_files:
     files_str = ', '.join(existing_files)
@@ -509,22 +535,26 @@ if compute_pool_name:
     
     # Create Flink API keys if requested
     if args.create_flink_key:
-        flink_api_key = create_flink_key(environment_name, args.cloud, args.region, env_id)
+        flink_api_key = create_flink_key(args.cloud, args.region, env_id)
 
 # Create Schema Registry API keys if requested
 if args.create_sr_key:
-    sr_api_key = create_schema_registry_key(environment_name)
+    sr_api_key = create_schema_registry_key()
 
 # Generate separate config files based on what was created
 created_files = []
 
-# Generate Kafka config if Kafka cluster was created
+# Generate Kafka config if Kafka cluster was created and Java and/or librdkafka-based client config file specified
 if cluster_id:
-    generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, args.kafka_properties_file)
-    created_files.append(args.kafka_properties_file)
+    if args.kafka_java_properties_file:
+        generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, True, args.kafka_java_properties_file)
+        created_files.append(args.kafka_java_properties_file)
+    if args.kafka_librdkafka_properties_file:
+        generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, False, args.kafka_librdkafka_properties_file)
+        created_files.append(args.kafka_librdkafka_properties_file)
 
-# Generate Flink config if Flink compute pool was created
-if flink_json:
+# Generate Flink config if Flink compute pool was created and config file specified
+if flink_json and args.flink_properties_file:
     generate_flink_config(flink_json, flink_api_key, env_id, args, args.flink_properties_file)
     created_files.append(args.flink_properties_file)
 

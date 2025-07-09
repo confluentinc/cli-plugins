@@ -423,7 +423,7 @@ parser.add_argument('--kafka-cluster-name',
 parser.add_argument('--compute-pool-name', 
                     help='Name of the Flink compute pool to create or use (optional - if not specified, no compute pool created)')
 parser.add_argument('--create-kafka-key', action='store_true', 
-                    help='Create Kafka API keys and include in Kafka properties file(s) (requires --kafka-cluster-name and one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)')
+                    help='Create Kafka API keys and include in Kafka properties file(s), and set it as the active key (requires --kafka-cluster-name and one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)')
 parser.add_argument('--create-flink-key', action='store_true', 
                     help='Create Flink API keys and include in flink.properties (requires --compute-pool-name and --flink-properties-file)')
 parser.add_argument('--create-sr-key', action='store_true', 
@@ -530,6 +530,10 @@ if kafka_cluster_name:
     # Create Kafka API keys if requested
     if args.create_kafka_key:
         kafka_api_key = create_kafka_key(cluster_id)
+
+        # Set this key to be used in future commands. This is a convenience so that, e.g., plugin users will be able to
+        # create and produce to topics via CLI without having to specify credentials.
+        cli(["confluent", "api-key", "use", kafka_api_key["api_key"]], capture_output=False)
 
 # Conditionally create Flink compute pool if name is provided
 if compute_pool_name:

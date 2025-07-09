@@ -30,7 +30,7 @@ options:
                         Name of the Flink compute pool to create or use (optional - if not specified, no compute pool created)
   --create-kafka-key    Create Kafka API keys and include in Kafka properties file(s) (requires --kafka-cluster-name and one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)
   --create-flink-key    Create Flink API keys and include in flink.properties (requires --compute-pool-name and --flink-properties-file)
-  --create-sr-key       Create Schema Registry API keys and include in Kafka properties file(s) (works independently)
+  --create-sr-key       Create Schema Registry API keys and include in Kafka properties file(s) (requires one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)
   --max-cfu {5,10}      The number of Confluent Flink Units for compute pool (default: 5)
   --region REGION       The cloud region to use (default: us-east-1)
   --cloud {aws,gcp,azure}

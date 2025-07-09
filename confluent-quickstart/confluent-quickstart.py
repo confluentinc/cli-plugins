@@ -427,7 +427,7 @@ parser.add_argument('--create-kafka-key', action='store_true',
 parser.add_argument('--create-flink-key', action='store_true', 
                     help='Create Flink API keys and include in flink.properties (requires --compute-pool-name and --flink-properties-file)')
 parser.add_argument('--create-sr-key', action='store_true', 
-                    help='Create Schema Registry API keys and include in Kafka properties file(s) (works independently)')
+                    help='Create Schema Registry API keys and include in Kafka properties file(s) (requires one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], 
                     help='The number of Confluent Flink Units for compute pool (default: %(default)s)')
 parser.add_argument('--region', default='us-east-1', 
@@ -461,6 +461,9 @@ if args.create_kafka_key and not args.kafka_java_properties_file and not args.ka
 
 if args.create_flink_key and not args.flink_properties_file:
     parser.error("--create-flink-key requires --flink-properties-file to be specified")
+
+if args.create_sr_key and not args.kafka_java_properties_file and not args.kafka_librdkafka_properties_file:
+    parser.error("--create-sr-key requires --kafka-java-properties-file and/or --kafka-librdkafka-properties-file to be specified")
 
 # Validate that at least one resource is being created
 if not args.kafka_cluster_name and not args.compute_pool_name and not args.create_sr_key:

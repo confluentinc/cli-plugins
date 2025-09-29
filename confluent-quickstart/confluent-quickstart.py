@@ -227,6 +227,22 @@ def create_flink_key(cloud, region, env_id):
 
 
 # =============================================================================
+# TABLEFLOW FUNCTIONS
+# =============================================================================
+
+def create_tableflow_key():
+    """Create API key for Tableflow"""
+    logging.info('Creating API key for Tableflow')
+    
+    api_key = cli(["confluent", "api-key", "create", "--resource", "tableflow",
+                   "-o", "json"])
+    logging.debug(f'Created Tableflow API key {api_key}')
+    
+    logging.info(f'Created Tableflow API key (will be saved to config file)')
+    return api_key
+
+
+# =============================================================================
 # SCHEMA REGISTRY FUNCTIONS
 # =============================================================================
 
@@ -381,11 +397,38 @@ client.flink-api-secret={flink_api_key["api_secret"]}"""
     return flink_properties_file
 
 
+def generate_tableflow_config(tableflow_api_key, env_id, args, tableflow_properties_file):
+    """Generate tableflow.properties file with Tableflow connection details"""
+    # Tableflow configuration
+    if tableflow_api_key and env_id and args:
+        # Get organization details
+        org_describe_json = cli(["confluent", "organization", "describe", "-o", "json"])
+        
+        # Construct catalog endpoint
+        catalog_endpoint = f"https://tableflow.{args.region}.{args.cloud}.confluent.cloud/iceberg/catalog/organizations/{org_describe_json['id']}/environments/{env_id}"
+        
+        file_contents = f"""tableflow.api-key={tableflow_api_key["api_key"]}
+tableflow.api-secret={tableflow_api_key["api_secret"]}
+tableflow.catalog-endpoint={catalog_endpoint}"""
+    
+        # Create directory if it doesn't exist
+        config_dir = os.path.dirname(tableflow_properties_file)
+        if config_dir and not os.path.exists(config_dir):
+            os.makedirs(config_dir, exist_ok=True)
+        
+        with open(tableflow_properties_file, 'w') as file:
+            file.write(file_contents)
+        
+        logging.info(f'Created Tableflow config file {tableflow_properties_file} containing:\n\n{file_contents}')
+    
+    return tableflow_properties_file
+
+
 # =============================================================================
 # ARGUMENT PARSING
 # =============================================================================
 
-usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--kafka-java-properties-file KAFKA_JAVA_PROPERTIES_FILE] [--kafka-librdkafka-properties-file KAFKA_LIBRDKAFKA_PROPERTIES_FILE] [--flink-properties-file FLINK_PROPERTIES_FILE] [--debug]'''
+usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--create-tableflow-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--kafka-java-properties-file KAFKA_JAVA_PROPERTIES_FILE] [--kafka-librdkafka-properties-file KAFKA_LIBRDKAFKA_PROPERTIES_FILE] [--flink-properties-file FLINK_PROPERTIES_FILE] [--tableflow-properties-file TABLEFLOW_PROPERTIES_FILE] [--debug]'''
 
 parser = argparse.ArgumentParser(description='Create and configure Confluent Cloud resources modularly.\n\n'
                                              'ALWAYS CREATES:\n'
@@ -396,7 +439,8 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              '  • API keys (if corresponding --create-*-key flags set, which would also require corresponding config file arguments)\n'
                                              '  • kafka-java.properties file for Java / Kafka Streams clients (if --kafka-java-properties-file provided)\n'
                                              '  • kafka-librdkafka.properties file for librdkafka clients (if --kafka-librdkafka-properties-file provided)\n'
-                                             '  • flink.properties file (if --flink-properties-file provided)\n\n'
+                                             '  • flink.properties file (if --flink-properties-file provided)\n'
+                                             '  • tableflow.properties file (if --tableflow-properties-file provided)\n\n'
                                              'RESOURCE HANDLING:\n'
                                              '  • Checks for existing resources and prompts for confirmation\n'
                                              '  • Validates region/cloud consistency for existing resources\n'
@@ -412,6 +456,8 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key --kafka-java-properties-file --kafka-librdkafka-properties-file --flink-properties-file\n\n'
                                              '  # Custom properties file locations:\n'
                                              '  confluent quickstart --environment-name "my_environment" --kafka-java-properties-file "./config/kafka.properties" --flink-properties-file "./config/flink.properties"\n\n'
+                                             '  # Tableflow setup:\n'
+                                             '  confluent quickstart --environment-name "my_environment" --create-tableflow-key --tableflow-properties-file\n\n'
                                              'Requires confluent CLI v4.0.0 or greater.',
                                  usage=usage_message,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -428,6 +474,8 @@ parser.add_argument('--create-flink-key', action='store_true',
                     help='Create Flink API keys and include in flink.properties (requires --compute-pool-name and --flink-properties-file)')
 parser.add_argument('--create-sr-key', action='store_true', 
                     help='Create Schema Registry API keys and include in Kafka properties file(s) (requires one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)')
+parser.add_argument('--create-tableflow-key', action='store_true', 
+                    help='Create Tableflow API keys and include in tableflow.properties (requires --tableflow-properties-file)')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], 
                     help='The number of Confluent Flink Units for compute pool (default: %(default)s)')
 parser.add_argument('--region', default='us-east-1', 
@@ -440,6 +488,8 @@ parser.add_argument('--kafka-librdkafka-properties-file', nargs='?', const='kafk
                     help='Path and filename for the Kafka librdkafka-based client properties file (default: %(const)s)')
 parser.add_argument('--flink-properties-file', nargs='?', const='flink.properties', default=None,
                     help='Path and filename for the Flink properties file (default: %(const)s)')
+parser.add_argument('--tableflow-properties-file', nargs='?', const='tableflow.properties', default=None,
+                    help='Path and filename for the Tableflow properties file (default: %(const)s)')
 parser.add_argument("--debug", action='store_true',
                     help="Enable debug logging with detailed command output")
 
@@ -465,9 +515,12 @@ if args.create_flink_key and not args.flink_properties_file:
 if args.create_sr_key and not args.kafka_java_properties_file and not args.kafka_librdkafka_properties_file:
     parser.error("--create-sr-key requires --kafka-java-properties-file and/or --kafka-librdkafka-properties-file to be specified")
 
+if args.create_tableflow_key and not args.tableflow_properties_file:
+    parser.error("--create-tableflow-key requires --tableflow-properties-file to be specified")
+
 # Validate that at least one resource is being created
-if not args.kafka_cluster_name and not args.compute_pool_name and not args.create_sr_key:
-    logging.warning("Only environment will be created. Consider adding --kafka-cluster-name, --compute-pool-name, or --create-sr-key for a more complete setup.")
+if not args.kafka_cluster_name and not args.compute_pool_name and not args.create_sr_key and not args.create_tableflow_key:
+    logging.warning("Only environment will be created. Consider adding --kafka-cluster-name, --compute-pool-name, --create-sr-key, or --create-tableflow-key for a more complete setup.")
 
 # Validate max-cfu is only relevant if creating compute pool
 if args.max_cfu != '5' and not args.compute_pool_name:
@@ -481,7 +534,7 @@ compute_pool_name = args.compute_pool_name
 
 logging.basicConfig(format='%(message)s', level=logging.DEBUG if args.debug else logging.INFO)
 
-config_files = [args.kafka_java_properties_file, args.kafka_librdkafka_properties_file, args.flink_properties_file]
+config_files = [args.kafka_java_properties_file, args.kafka_librdkafka_properties_file, args.flink_properties_file, args.tableflow_properties_file]
 
 # Validate config files are unique. Use os.path.realpath to compare canonical paths (e.g., 'foo' and './foo' will be
 # considered duplicates)
@@ -520,6 +573,7 @@ kafka_api_key = None
 flink_json = None
 flink_api_key = None
 sr_api_key = None
+tableflow_api_key = None
 
 # Conditionally create Kafka cluster if name is provided
 if kafka_cluster_name:
@@ -548,6 +602,10 @@ if compute_pool_name:
 if args.create_sr_key:
     sr_api_key = create_schema_registry_key()
 
+# Create Tableflow API keys if requested
+if args.create_tableflow_key:
+    tableflow_api_key = create_tableflow_key()
+
 # Generate separate config files based on what was created
 created_files = []
 
@@ -564,6 +622,11 @@ if cluster_id:
 if flink_json and args.flink_properties_file:
     generate_flink_config(flink_json, flink_api_key, env_id, args, args.flink_properties_file)
     created_files.append(args.flink_properties_file)
+
+# Generate Tableflow config if Tableflow API key was created and config file specified
+if tableflow_api_key and args.tableflow_properties_file:
+    generate_tableflow_config(tableflow_api_key, env_id, args, args.tableflow_properties_file)
+    created_files.append(args.tableflow_properties_file)
 
 if not created_files:
     logging.info("No config files were created (no resources were created)")

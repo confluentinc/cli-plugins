@@ -409,6 +409,7 @@ def generate_tableflow_config(tableflow_api_key, env_id, args, tableflow_propert
         
         file_contents = f"""tableflow.api-key={tableflow_api_key["api_key"]}
 tableflow.api-secret={tableflow_api_key["api_secret"]}
+tableflow.region={args.region}
 tableflow.catalog-endpoint={catalog_endpoint}"""
     
         # Create directory if it doesn't exist

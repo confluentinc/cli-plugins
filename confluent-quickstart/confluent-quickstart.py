@@ -510,7 +510,7 @@ parser.add_argument('--create-kafka-key', action='store_true',
 parser.add_argument('--create-flink-key', action='store_true', 
                     help='Create Flink API keys and include in flink.properties (requires --compute-pool-name and --flink-properties-file)')
 parser.add_argument('--create-sr-key', action='store_true', 
-                    help='Create Schema Registry API keys and include in config file(s). For Java clients, SR config goes into Kafka properties file. For librdkafka clients, SR config must go into separate schema-registry.properties file (requires --kafka-java-properties-file and/or --schema-registry-properties-file.')
+                    help='Create Schema Registry API keys and include in config file(s). For Java clients, SR config goes into Kafka properties file. For librdkafka clients, SR config must go into separate schema-registry.properties file (requires --kafka-java-properties-file and/or --schema-registry-properties-file.)')
 parser.add_argument('--create-tableflow-key', action='store_true', 
                     help='Create Tableflow API keys and include in tableflow.properties (requires --tableflow-properties-file)')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], 

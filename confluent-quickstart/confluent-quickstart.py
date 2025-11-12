@@ -425,11 +425,42 @@ tableflow.catalog-endpoint={catalog_endpoint}"""
     return tableflow_properties_file
 
 
+def generate_schema_registry_config(sr_api_key, env_id, schema_registry_properties_file):
+    """Generate schema-registry.properties file with Schema Registry connection details"""
+    content_parts = []
+    
+    # Environment ID comment
+    if env_id:
+        content_parts.append(f'# Environment ID: {env_id}')
+    
+    # Schema Registry configuration
+    if sr_api_key:
+        sr_describe_json = cli(["confluent", "schema-registry", "cluster", "describe", "-o", "json"])
+        sr_config = f"""# Schema Registry Configuration
+url={sr_describe_json["endpoint_url"]}
+basic.auth.user.info={sr_api_key["api_key"]}:{sr_api_key["api_secret"]}"""
+        content_parts.append(sr_config)
+    
+    # Join all parts with double newlines
+    file_contents = '\n\n'.join(content_parts)
+    
+    # Create directory if it doesn't exist
+    config_dir = os.path.dirname(schema_registry_properties_file)
+    if config_dir and not os.path.exists(config_dir):
+        os.makedirs(config_dir, exist_ok=True)
+    
+    with open(schema_registry_properties_file, 'w') as file:
+        file.write(file_contents)
+    
+    logging.info(f'Created Schema Registry config file {schema_registry_properties_file} containing:\n\n{file_contents}')
+    return schema_registry_properties_file
+
+
 # =============================================================================
 # ARGUMENT PARSING
 # =============================================================================
 
-usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--create-tableflow-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--kafka-java-properties-file KAFKA_JAVA_PROPERTIES_FILE] [--kafka-librdkafka-properties-file KAFKA_LIBRDKAFKA_PROPERTIES_FILE] [--flink-properties-file FLINK_PROPERTIES_FILE] [--tableflow-properties-file TABLEFLOW_PROPERTIES_FILE] [--debug]'''
+usage_message = '''confluent quickstart [-h] --environment-name ENVIRONMENT_NAME [--kafka-cluster-name KAFKA_CLUSTER_NAME] [--compute-pool-name COMPUTE_POOL_NAME] [--create-kafka-key] [--create-flink-key] [--create-sr-key] [--create-tableflow-key] [--max-cfu {5,10}] [--region REGION] [--cloud {aws,gcp,azure}] [--kafka-java-properties-file KAFKA_JAVA_PROPERTIES_FILE] [--kafka-librdkafka-properties-file KAFKA_LIBRDKAFKA_PROPERTIES_FILE] [--flink-properties-file FLINK_PROPERTIES_FILE] [--tableflow-properties-file TABLEFLOW_PROPERTIES_FILE] [--schema-registry-properties-file SCHEMA_REGISTRY_PROPERTIES_FILE] [--debug]'''
 
 parser = argparse.ArgumentParser(description='Create and configure Confluent Cloud resources modularly.\n\n'
                                              'ALWAYS CREATES:\n'
@@ -441,7 +472,8 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              '  • kafka-java.properties file for Java / Kafka Streams clients (if --kafka-java-properties-file provided)\n'
                                              '  • kafka-librdkafka.properties file for librdkafka clients (if --kafka-librdkafka-properties-file provided)\n'
                                              '  • flink.properties file (if --flink-properties-file provided)\n'
-                                             '  • tableflow.properties file (if --tableflow-properties-file provided)\n\n'
+                                             '  • tableflow.properties file (if --tableflow-properties-file provided)\n'
+                                             '  • schema-registry.properties file (if --schema-registry-properties-file provided)\n\n'
                                              'RESOURCE HANDLING:\n'
                                              '  • Checks for existing resources and prompts for confirmation\n'
                                              '  • Validates region/cloud consistency for existing resources\n'
@@ -454,11 +486,15 @@ parser = argparse.ArgumentParser(description='Create and configure Confluent Clo
                                              '  # Kafka setup (Java client config only):\n'
                                              '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --create-kafka-key --kafka-java-properties-file\n\n'
                                              '  # Full data platform (generates both Java and librdkafka Kafka client configs):\n'
-                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key --kafka-java-properties-file --kafka-librdkafka-properties-file --flink-properties-file\n\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --compute-pool-name "pool" --create-kafka-key --create-flink-key --create-sr-key --kafka-java-properties-file --kafka-librdkafka-properties-file --schema-registry-properties-file --flink-properties-file\n\n'
                                              '  # Custom properties file locations:\n'
                                              '  confluent quickstart --environment-name "my_environment" --kafka-java-properties-file "./config/kafka.properties" --flink-properties-file "./config/flink.properties"\n\n'
                                              '  # Tableflow setup:\n'
                                              '  confluent quickstart --environment-name "my_environment" --create-tableflow-key --tableflow-properties-file\n\n'
+                                             '  # Schema Registry with separate config file:\n'
+                                             '  confluent quickstart --environment-name "my_environment" --create-sr-key --schema-registry-properties-file\n\n'
+                                             '  # librdkafka client with separate Schema Registry config (required):\n'
+                                             '  confluent quickstart --environment-name "my_environment" --kafka-cluster-name "my_cluster" --create-kafka-key --create-sr-key --kafka-librdkafka-properties-file --schema-registry-properties-file\n\n'
                                              'Requires confluent CLI v4.0.0 or greater.',
                                  usage=usage_message,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -474,7 +510,7 @@ parser.add_argument('--create-kafka-key', action='store_true',
 parser.add_argument('--create-flink-key', action='store_true', 
                     help='Create Flink API keys and include in flink.properties (requires --compute-pool-name and --flink-properties-file)')
 parser.add_argument('--create-sr-key', action='store_true', 
-                    help='Create Schema Registry API keys and include in Kafka properties file(s) (requires one or both of --kafka-java-properties-file / --kafka-librdkafka-properties-file)')
+                    help='Create Schema Registry API keys and include in config file(s). For Java clients, SR config goes into Kafka properties file. For librdkafka clients, SR config must go into separate schema-registry.properties file (requires --kafka-java-properties-file and/or --schema-registry-properties-file.)')
 parser.add_argument('--create-tableflow-key', action='store_true', 
                     help='Create Tableflow API keys and include in tableflow.properties (requires --tableflow-properties-file)')
 parser.add_argument('--max-cfu', default='5', choices=['5', '10'], 
@@ -491,6 +527,8 @@ parser.add_argument('--flink-properties-file', nargs='?', const='flink.propertie
                     help='Path and filename for the Flink properties file (default: %(const)s)')
 parser.add_argument('--tableflow-properties-file', nargs='?', const='tableflow.properties', default=None,
                     help='Path and filename for the Tableflow properties file (default: %(const)s)')
+parser.add_argument('--schema-registry-properties-file', nargs='?', const='schema-registry.properties', default=None,
+                    help='Path and filename for the Schema Registry properties file (default: %(const)s)')
 parser.add_argument("--debug", action='store_true',
                     help="Enable debug logging with detailed command output")
 
@@ -513,8 +551,11 @@ if args.create_kafka_key and not args.kafka_java_properties_file and not args.ka
 if args.create_flink_key and not args.flink_properties_file:
     parser.error("--create-flink-key requires --flink-properties-file to be specified")
 
-if args.create_sr_key and not args.kafka_java_properties_file and not args.kafka_librdkafka_properties_file:
-    parser.error("--create-sr-key requires --kafka-java-properties-file and/or --kafka-librdkafka-properties-file to be specified")
+if args.create_sr_key and not args.kafka_java_properties_file and not args.schema_registry_properties_file:
+    parser.error("--create-sr-key requires --kafka-java-properties-file and/or --schema-registry-properties-file to be specified")
+
+if args.create_sr_key and args.kafka_librdkafka_properties_file and not args.schema_registry_properties_file:
+    parser.error("--create-sr-key with --kafka-librdkafka-properties-file requires --schema-registry-properties-file to be specified")
 
 if args.create_tableflow_key and not args.tableflow_properties_file:
     parser.error("--create-tableflow-key requires --tableflow-properties-file to be specified")
@@ -535,7 +576,7 @@ compute_pool_name = args.compute_pool_name
 
 logging.basicConfig(format='%(message)s', level=logging.DEBUG if args.debug else logging.INFO)
 
-config_files = [args.kafka_java_properties_file, args.kafka_librdkafka_properties_file, args.flink_properties_file, args.tableflow_properties_file]
+config_files = [args.kafka_java_properties_file, args.kafka_librdkafka_properties_file, args.flink_properties_file, args.tableflow_properties_file, args.schema_registry_properties_file]
 
 # Validate config files are unique. Use os.path.realpath to compare canonical paths (e.g., 'foo' and './foo' will be
 # considered duplicates)
@@ -616,8 +657,13 @@ if cluster_id:
         generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, True, args.kafka_java_properties_file)
         created_files.append(args.kafka_java_properties_file)
     if args.kafka_librdkafka_properties_file:
-        generate_kafka_config(cluster_id, kafka_api_key, sr_api_key, env_id, False, args.kafka_librdkafka_properties_file)
+        generate_kafka_config(cluster_id, kafka_api_key, None, env_id, False, args.kafka_librdkafka_properties_file)
         created_files.append(args.kafka_librdkafka_properties_file)
+
+# Generate separate Schema Registry config if requested and Schema Registry API key was created
+if sr_api_key and args.schema_registry_properties_file:
+    generate_schema_registry_config(sr_api_key, env_id, args.schema_registry_properties_file)
+    created_files.append(args.schema_registry_properties_file)
 
 # Generate Flink config if Flink compute pool was created and config file specified
 if flink_json and args.flink_properties_file:

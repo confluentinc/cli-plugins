@@ -226,6 +226,16 @@ def create_flink_key(cloud, region, env_id):
     return api_key
 
 
+def create_flink_artifact_key():
+    """Create artifact upload API key for Flink"""
+    logging.info('Creating artifact upload API key for Flink')
+
+    api_key = cli(["confluent", "api-key", "create", "--resource", "cloud", "-o", "json"])
+    logging.debug(f'Created artifact upload API key for Flink {api_key}')
+
+    logging.info(f'Created artifact upload API key for Flink (will be saved to unified config file)')
+    return api_key
+
 # =============================================================================
 # TABLEFLOW FUNCTIONS
 # =============================================================================
@@ -344,7 +354,7 @@ basic.auth.user.info={sr_api_key["api_key"]}:{sr_api_key["api_secret"]}"""
     return kafka_properties_file
 
 
-def generate_flink_config(flink_json, flink_api_key, env_id, args, flink_properties_file):
+def generate_flink_config(flink_json, flink_api_key, flink_artifact_api_key, env_id, args, flink_properties_file):
     """Generate flink.properties file with Flink connection details"""
     content_parts = []
     
@@ -379,6 +389,15 @@ client.flink-api-secret={flink_api_key["api_secret"]}"""
 # client.principal-id=<your-principal-id>
 # client.flink-api-key=<your-flink-api-key>
 # client.flink-api-secret=<your-flink-api-secret>"""
+
+        if flink_artifact_api_key:
+            flink_config += f"""
+client.artifact-api-key={flink_artifact_api_key["api_key"]}
+client.artifact-api-secret={flink_artifact_api_key["api_secret"]}"""
+        else:
+            flink_config += f"""
+# client.artifact-api-key=<your-artifact-api-key>
+# client.artifact-api-secret=<your-artifact-api-secret>"""
         
         content_parts.append(flink_config)
     
@@ -614,6 +633,7 @@ cluster_id = None
 kafka_api_key = None
 flink_json = None
 flink_api_key = None
+flink_artifact_api_key = None
 sr_api_key = None
 tableflow_api_key = None
 
@@ -639,6 +659,7 @@ if compute_pool_name:
     # Create Flink API keys if requested
     if args.create_flink_key:
         flink_api_key = create_flink_key(args.cloud, args.region, env_id)
+        flink_artifact_api_key = create_flink_artifact_key()
 
 # Create Schema Registry API keys if requested
 if args.create_sr_key:
@@ -667,7 +688,7 @@ if sr_api_key and args.schema_registry_properties_file:
 
 # Generate Flink config if Flink compute pool was created and config file specified
 if flink_json and args.flink_properties_file:
-    generate_flink_config(flink_json, flink_api_key, env_id, args, args.flink_properties_file)
+    generate_flink_config(flink_json, flink_api_key, flink_artifact_api_key, env_id, args, args.flink_properties_file)
     created_files.append(args.flink_properties_file)
 
 # Generate Tableflow config if Tableflow API key was created and config file specified
